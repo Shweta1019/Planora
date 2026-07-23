@@ -1,0 +1,70 @@
+/* ============================================================
+   PLANORA — Design Tokens
+   Light theme + dark sidebar
+   ============================================================ */
+
+:root {
+  /* ---- Sidebar ---- */
+  --sidebar-bg:        #1e2139;
+  --sidebar-hover:     rgba(255, 255, 255, 0.06);
+  --sidebar-active:    rgba(99, 102, 241, 0.2);
+  --sidebar-text:      #a0aec0;
+  --sidebar-text-active: #ffffff;
+  --sidebar-border:    rgba(255, 255, 255, 0.06);
+  --sidebar-width:     220px;
+  --sidebar-collapsed: 64px;
+
+  /* ---- Main content ---- */
+  --bg-main:     #f4f6fc;
+  --bg-card:     #ffffff;
+  --bg-input:    #f8f9fe;
+  --navbar-bg:   #ffffff;
+  --navbar-h:    64px;
+
+  /* ---- Brand / Accent ---- */
+  --purple:       #6366f1;
+  --purple-dark:  #4f46e5;
+  --purple-light: #818cf8;
+  --purple-dim:   rgba(99, 102, 241, 0.1);
+  --purple-dim2:  rgba(99, 102, 241, 0.15);
+
+  /* ---- Text ---- */
+  --text-primary:   #1e2139;
+  --text-secondary: #6b7280;
+  --text-muted:     #9ca3af;
+  --text-on-dark:   #ffffff;
+
+  /* ---- Status ---- */
+  --green:       #10b981;
+  --green-dim:   rgba(16, 185, 129, 0.12);
+  --yellow:      #f59e0b;
+  --yellow-dim:  rgba(245, 158, 11, 0.12);
+  --red:         #ef4444;
+  --red-dim:     rgba(239, 68, 68, 0.12);
+  --blue:        #3b82f6;
+  --blue-dim:    rgba(59, 130, 246, 0.12);
+  --orange:      #f97316;
+  --orange-dim:  rgba(249, 115, 22, 0.12);
+
+  /* ---- Borders ---- */
+  --border:        #e5e7eb;
+  --border-focus:  var(--purple);
+  --border-light:  #f3f4f6;
+
+  /* ---- Shadows ---- */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 4px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.1);
+
+  /* ---- Radius ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* ---- Transitions ---- */
+  --ease: 0.18s ease;
+  --ease-md: 0.25s ease;
+}
