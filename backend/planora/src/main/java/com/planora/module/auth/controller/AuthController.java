@@ -19,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import com.planora.module.notification.service.NotificationService;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
@@ -35,6 +36,7 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final NotificationService notificationService;
 
     /* ── LOGIN ─────────────────────────────────────────────── */
     @PostMapping("/login")
@@ -87,6 +89,12 @@ public class AuthController {
                 .build();
 
         userRepository.save(newUser);
+
+        // notify all admins that a new user signed up
+        String roleName = assignedRole.name().replace('_', ' ');
+        String notifTitle = "New User Registered";
+        String notifMsg   = newUser.getFullName() + " (" + roleName + ") has registered. Email: " + newUser.getEmail();
+        notificationService.sendToAllAdmins(notifTitle, notifMsg, "NEW_USER");
 
         // Auto-login after register
         UserDetails userDetails = userDetailsService.loadUserByUsername(dto.getEmail());

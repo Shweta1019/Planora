@@ -1151,3 +1151,89 @@
 .timeline-date  { font-size: 0.68rem; color: var(--text-muted); margin-top: 3px; }
 .timeline-step.done .timeline-dot { background: var(--purple); }
 
+
+/* ── Settings Page — Viewport-height layout ───────────────────
+   .settings-layout  : two-column flex row, fills remaining viewport
+   .settings-nav     : left sidebar card — sticky, full remaining height, scrollable
+   .settings-panel   : right content area — scrollable if needed
+   ─────────────────────────────────────────────────────────────── */
+
+.settings-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+
+  /* Fill the remaining vertical space inside .page-content.
+     page-content already has margin-top: var(--navbar-h) and padding: 24px,
+     so we subtract those from 100dvh (falls back to 100vh). */
+  min-height: calc(100dvh - var(--navbar-h) - 48px);
+}
+
+/* --- Left nav sidebar card --- */
+.settings-nav {
+  width: 200px;
+  flex-shrink: 0;
+  padding: 8px;
+
+  /* Stick to the top of the scrollable page-content area */
+  position: sticky;
+  top: calc(var(--navbar-h) + 24px);
+
+  /* Fill all remaining vertical space, but never overflow the screen */
+  height: calc(100dvh - var(--navbar-h) - 48px);
+  max-height: calc(100dvh - var(--navbar-h) - 48px);
+
+  /* Scroll tabs if they somehow overflow (future-proof) */
+  overflow-y: auto;
+
+  /* Fallback for browsers without dvh support */
+  height: calc(100vh - var(--navbar-h) - 48px);
+  max-height: calc(100vh - var(--navbar-h) - 48px);
+}
+
+/* dvh override when supported */
+@supports (height: 100dvh) {
+  .settings-nav {
+    height: calc(100dvh - var(--navbar-h) - 48px);
+    max-height: calc(100dvh - var(--navbar-h) - 48px);
+  }
+}
+
+/* --- Right content panel --- */
+.settings-panel {
+  flex: 1;
+  min-width: 0;       /* prevents flex child from overflowing */
+  overflow-y: auto;
+  max-height: calc(100dvh - var(--navbar-h) - 48px);
+}
+
+@supports (height: 100dvh) {
+  .settings-panel {
+    max-height: calc(100dvh - var(--navbar-h) - 48px);
+  }
+}
+
+/* --- Mobile: stack vertically --- */
+@media (max-width: 640px) {
+  .settings-layout {
+    flex-direction: column;
+    min-height: unset;
+  }
+
+  .settings-nav {
+    width: 100%;
+    position: static;
+    height: auto;
+    max-height: none;
+    overflow-y: visible;
+    /* Show all three tabs side-by-side on small screens */
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+  }
+
+  .settings-panel {
+    max-height: none;
+    overflow-y: visible;
+  }
+}

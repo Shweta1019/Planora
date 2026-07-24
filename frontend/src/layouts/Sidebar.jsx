@@ -18,7 +18,7 @@ const ALL_NAV = [
   {
     to: '/projects',
     icon: FolderKanban,
-    label: 'Projects',
+    label: 'My Projects',
     roles: [ROLES.ADMIN, ROLES.PM],
   },
   {
@@ -36,7 +36,7 @@ const ALL_NAV = [
   {
     to: '/users',
     icon: Users,
-    label: 'Users',
+    label: 'Team Members',
     roles: [ROLES.ADMIN],                          // Admin only
   },
   {
@@ -85,15 +85,15 @@ const ALL_NAV = [
 
 // Role badge colours
 const ROLE_BADGE = {
-  [ROLES.ADMIN]:    { label: 'Admin',           bg: '#ede9fe', color: '#7c3aed' },
-  [ROLES.PM]:       { label: 'Project Manager', bg: '#dbeafe', color: '#2563eb' },
-  [ROLES.EMPLOYEE]: { label: 'Employee',         bg: '#d1fae5', color: '#059669' },
+  [ROLES.ADMIN]: { label: 'Admin', bg: '#ede9fe', color: '#7c3aed' },
+  [ROLES.PM]: { label: 'Project Manager', bg: '#dbeafe', color: '#2563eb' },
+  [ROLES.EMPLOYEE]: { label: 'Employee', bg: '#d1fae5', color: '#059669' },
 }
 
 export default function Sidebar({ collapsed, onToggle, notifCount = 0 }) {
-  const navigate         = useNavigate()
+  const navigate = useNavigate()
   const { user, logout } = useAuthStore()
-  const { role }         = useRole()
+  const { role } = useRole()
 
   // Filter nav items by role
   const navItems = ALL_NAV.filter(item => item.roles.includes(role))
@@ -126,23 +126,7 @@ export default function Sidebar({ collapsed, onToggle, notifCount = 0 }) {
         )}
       </div>
 
-      {/* Role badge — only when expanded */}
-      {!collapsed && role && (
-        <div style={{ padding: '0 14px 10px' }}>
-          <span style={{
-            display: 'inline-block',
-            padding: '3px 10px',
-            borderRadius: 20,
-            fontSize: '0.7rem',
-            fontWeight: 700,
-            background: badge.bg,
-            color: badge.color,
-            letterSpacing: 0.3,
-          }}>
-            {badge.label}
-          </span>
-        </div>
-      )}
+
 
       {/* Nav */}
       <nav className="sidebar-nav">
@@ -166,31 +150,13 @@ export default function Sidebar({ collapsed, onToggle, notifCount = 0 }) {
         ))}
       </nav>
 
-      {/* Collapse toggle */}
-      <button className="sidebar-collapse-btn" onClick={onToggle} title="Toggle sidebar">
-        {collapsed
-          ? <ChevronRight size={16} />
-          : <><ChevronLeft size={16} /><span>Collapse</span></>
-        }
-      </button>
-
-      {/* User at bottom */}
-      {!collapsed && user && (
-        <div className="sidebar-user">
-          <div className="avatar avatar-sm" style={{ flexShrink: 0 }}>
-            {user.fullName?.[0] || 'U'}
-          </div>
-          <div className="sidebar-user-info">
-            <div className="sidebar-user-name">{user.fullName}</div>
-            <div className="sidebar-user-role" style={{ color: badge.color, fontWeight: 600 }}>
-              {badge.label}
-            </div>
-          </div>
-          <button className="sidebar-user-logout" onClick={handleLogout} title="Logout">
-            <LogOut size={15} />
-          </button>
-        </div>
-      )}
+      {/* Footer: copyright + collapse */}
+      <div className="sidebar-footer">
+        {!collapsed && <span className="sidebar-footer-copy">© 2024 Planora</span>}
+        <button className="sidebar-footer-collapse" onClick={onToggle} title="Toggle sidebar">
+          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
+      </div>
     </aside>
   )
 }

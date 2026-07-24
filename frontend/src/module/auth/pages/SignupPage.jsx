@@ -23,6 +23,7 @@ const ROLES = [
 export default function SignupPage() {
   const navigate = useNavigate()
 
+
   // Removed 'terms' from state since we removed the checkbox
   const [form, setForm] = useState({
     fullName: '',
@@ -110,8 +111,9 @@ export default function SignupPage() {
             {/* Logo row */}
             <div className="login-brand-row">
               <div className="login-logo-box">
-                <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
-                  <path d="M8 24V10l8-4 8 4v14l-8 4-8-4z" fill="white" fillOpacity="0.95" />
+                <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
+                  <rect width="32" height="32" rx="8" fill="white" fillOpacity="0.2" />
+                  <path d="M8 24V10l8-4 8 4v14l-8 4-8-4z" fill="white" fillOpacity="0.9" />
                   <path d="M16 6v20M8 10l8 4 8-4" stroke="white" strokeWidth="1.5" />
                 </svg>
               </div>
@@ -123,7 +125,8 @@ export default function SignupPage() {
               Create.<br />Collaborate.<br />Succeed.
             </h2>
             <p className="login-left-desc">
-              Project Monitoring &amp; Management System
+              Create your account and start collaborating with your team.
+              Manage projects, track tasks, and deliver results efficiently.
             </p>
 
             {/* Feature list */}

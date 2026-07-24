@@ -8,7 +8,7 @@ import RoleGuard from '../protectedRoutes/RoleGuard'
 // Lazy load all pages
 const LoginPage = lazy(() => import('../module/auth/pages/LoginPage'))
 const SignupPage = lazy(() => import('../module/auth/pages/SignupPage'))
-const ForgotPasswordPage = lazy(() => import('../module/auth/pages/ForgotPasswordPage')) // Yahan Forgot Password import kiya hai
+const ForgotPasswordPage = lazy(() => import('../module/auth/pages/ForgotPasswordPage'))
 const DashboardPage = lazy(() => import('../module/dashboard/pages/DashboardPage'))
 const ProjectListPage = lazy(() => import('../module/project/pages/ProjectListPage'))
 const ProjectDetailsPage = lazy(() => import('../module/project/pages/ProjectDetailsPage'))

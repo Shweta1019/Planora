@@ -1,9 +1,11 @@
 package com.planora.module.notification.service;
 
+import com.planora.common.enums.Role;
 import com.planora.module.notification.dto.response.NotificationResponseDto;
 import com.planora.module.notification.entity.Notification;
 import com.planora.module.notification.mapper.NotificationMapper;
 import com.planora.module.notification.repository.NotificationRepository;
+import com.planora.module.user.entity.User;
 import com.planora.module.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,10 +18,10 @@ import java.util.stream.Collectors;
 public class NotificationService {
 
     private final NotificationRepository notificationRepository;
-    private final UserRepository userRepository;
-    private final NotificationMapper notificationMapper;
+    private final UserRepository         userRepository;
+    private final NotificationMapper     notificationMapper;
 
-    // called internally from any service when an event occurs
+    // ── Internal helper ── send a notification to one user
     public void send(Long userId, String title, String message, String type) {
         userRepository.findById(userId).ifPresent(user -> {
             Notification n = Notification.builder()
@@ -31,6 +33,22 @@ public class NotificationService {
             notificationRepository.save(n);
         });
     }
+
+    // ── Internal helper ── send same notification to every admin
+    public void sendToAllAdmins(String title, String message, String type) {
+        List<User> admins = userRepository.findByRole(Role.ADMIN);
+        for (User admin : admins) {
+            Notification n = Notification.builder()
+                    .user(admin)
+                    .title(title)
+                    .message(message)
+                    .type(type)
+                    .build();
+            notificationRepository.save(n);
+        }
+    }
+
+    // ── Fetch ─────────────────────────────────────────────────
 
     public List<NotificationResponseDto> getForUser(Long userId) {
         return notificationRepository.findByUserUserIdOrderByCreatedAtDesc(userId)
@@ -45,6 +63,8 @@ public class NotificationService {
     public long countUnread(Long userId) {
         return notificationRepository.countByUserUserIdAndIsReadFalse(userId);
     }
+
+    // ── Mark read ──────────────────────────────────────────────
 
     public void markAllRead(Long userId) {
         List<Notification> unread = notificationRepository.findByUserUserIdAndIsReadFalse(userId);

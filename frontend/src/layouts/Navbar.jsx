@@ -56,7 +56,7 @@ export default function Navbar({ onMenuToggle, notifCount = 0 }) {
           <Search size={15} className="navbar-search-icon" />
           <input
             type="text"
-            placeholder="Search anything..."
+            placeholder="Search something..."
             className="navbar-search-input"
           />
         </div>

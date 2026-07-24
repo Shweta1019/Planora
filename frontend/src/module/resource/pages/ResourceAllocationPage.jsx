@@ -1,223 +1,714 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { resourceApi } from '../../../api/resourceApi'
 import { userApi }     from '../../../api/userApi'
 import { projectApi }  from '../../../api/projectApi'
-import { Plus, Search, RotateCcw, Eye, Pencil, MoreVertical, Users, CheckCircle2, Clock, AlertCircle } from 'lucide-react'
-import { initials, progressColor } from '../../../utils/formatDate'
-import AllocateModal from '../components/AllocationForm'
+import { useRole }     from '../../../store/useRole'
+import {
+  Plus, Search, Eye, Pencil, MoreVertical, Trash2, X,
+  ShieldOff, Users,
+  ChevronLeft, ChevronRight
+} from 'lucide-react'
+import { initials } from '../../../utils/formatDate'
 
-// Map common roles → skill tags
+// ── Skill helpers ────────────────────────────────────────────────────────────
 const ROLE_SKILLS = {
-  'PROJECT_MANAGER': ['Management', 'Planning', 'Leadership'],
-  'ADMIN':           ['Administration', 'Management', 'Config'],
-  'EMPLOYEE':        ['Development', 'Teamwork'],
-  'FRONTEND':        ['React', 'JavaScript', 'UI/UX'],
-  'BACKEND':         ['Java', 'Spring Boot', 'API'],
-  'QA':              ['Testing', 'Selenium', 'Jira'],
-  'DESIGNER':        ['Figma', 'UI Design', 'UX Research'],
-  'DEVOPS':          ['AWS', 'Docker', 'CI/CD'],
-  'ANALYST':         ['Analysis', 'Documentation', 'SQL'],
+  PROJECT_MANAGER: ['Management', 'Planning', 'Leadership'],
+  ADMIN:           ['Administration', 'Management', 'Config'],
+  EMPLOYEE:        ['Development', 'Teamwork'],
+  FRONTEND:        ['React', 'JavaScript', 'UI/UX'],
+  BACKEND:         ['Java', 'Spring Boot', 'API'],
+  QA:              ['Testing', 'Selenium', 'Jira'],
+  DESIGNER:        ['Figma', 'UI Design', 'UX Research'],
+  DEVOPS:          ['AWS', 'Docker', 'CI/CD'],
+  ANALYST:         ['Analysis', 'Documentation', 'SQL'],
 }
 
-function getSkillsForUser(u) {
-  const byRole = ROLE_SKILLS[u.role] || ROLE_SKILLS['EMPLOYEE']
-  // parse from designation if available
+function getSkills(u) {
+  if (u.skills) {
+    return Array.isArray(u.skills) ? u.skills : u.skills.split(',').map(s => s.trim()).filter(Boolean)
+  }
   if (u.designation) {
     const d = u.designation.toUpperCase()
-    if (d.includes('FRONTEND')) return ROLE_SKILLS['FRONTEND']
-    if (d.includes('BACKEND'))  return ROLE_SKILLS['BACKEND']
-    if (d.includes('QA'))       return ROLE_SKILLS['QA']
-    if (d.includes('DESIGN'))   return ROLE_SKILLS['DESIGNER']
-    if (d.includes('DEVOPS'))   return ROLE_SKILLS['DEVOPS']
-    if (d.includes('ANALYST'))  return ROLE_SKILLS['ANALYST']
+    if (d.includes('FRONTEND')) return ROLE_SKILLS.FRONTEND
+    if (d.includes('BACKEND'))  return ROLE_SKILLS.BACKEND
+    if (d.includes('QA'))       return ROLE_SKILLS.QA
+    if (d.includes('DESIGN'))   return ROLE_SKILLS.DESIGNER
+    if (d.includes('DEVOPS'))   return ROLE_SKILLS.DEVOPS
+    if (d.includes('ANALYST'))  return ROLE_SKILLS.ANALYST
   }
-  return byRole
+  return ROLE_SKILLS[u.role] || ROLE_SKILLS.EMPLOYEE
 }
 
-const SKILL_COLORS = ['#ede9fe', '#dbeafe', '#d1fae5', '#fef3c7', '#fee2e2']
-const SKILL_TEXT   = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626']
+// ── Availability badge ───────────────────────────────────────────────────────
+function availBadge(avail) {
+  if (avail === 'FULLY_ALLOCATED')    return { bg: '#fee2e2', color: '#dc2626', dot: '#dc2626', label: 'Unavailable' }
+  if (avail === 'PARTIALLY_AVAILABLE') return { bg: '#fef3c7', color: '#d97706', dot: '#d97706', label: 'Partially Available' }
+  return { bg: '#d1fae5', color: '#059669', dot: '#059669', label: 'Available' }
+}
 
-function SkillTag({ skill, idx }) {
-  const bg   = SKILL_COLORS[idx % SKILL_COLORS.length]
-  const text = SKILL_TEXT[idx % SKILL_TEXT.length]
+// ── View Details Modal ───────────────────────────────────────────────────────
+function ViewDetailsModal({ user, alloc, onClose }) {
+  const { pct, projectNames, avail } = alloc
+  const badge = availBadge(avail)
+  const skills = getSkills(user)
+  const name = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim()
+
   return (
-    <span style={{ background: bg, color: text, borderRadius: 12, padding: '2px 8px', fontSize: '0.72rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
-      {skill}
-    </span>
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 480 }}>
+        <div className="modal-header">
+          <h2 className="modal-title">Resource Details</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18}/></button>
+        </div>
+        <div className="modal-body">
+          {/* User card */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 10, marginBottom: 20 }}>
+            <div className="avatar avatar-lg" style={{ fontSize: '1rem', width: 52, height: 52, flexShrink: 0 }}>{initials(name)}</div>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{name}</div>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 }}>{user.email}</div>
+              <span style={{ background: '#ede9fe', color: '#7c3aed', borderRadius: 20, padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
+                {user.designation || user.role?.replace('_', ' ')}
+              </span>
+            </div>
+          </div>
+
+          {/* Details grid */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 24px' }}>
+            {[
+              { label: 'Skills',           val: skills.join(', ') },
+              { label: 'Availability',     val: <span style={{ color: badge.color, fontWeight: 600 }}>{badge.label}</span> },
+              { label: 'Current Project',  val: projectNames || '—' },
+              { label: 'Allocation',       val: `${pct}%` },
+              { label: 'Role',             val: user.role?.replace('_', ' ') },
+              { label: 'Joined On',        val: user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
+            ].map(({ label, val }) => (
+              <div key={label} style={{ padding: '6px 0', borderBottom: '1px solid var(--border-light)' }}>
+                <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>{val}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>Close</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
-const TABS = ['All Resources', 'Team Allocation', 'Availability']
-
-export default function ResourceAllocationPage() {
+// ── Edit Resource Modal ──────────────────────────────────────────────────────
+function EditResourceModal({ user, onClose, onSaved }) {
   const qc = useQueryClient()
-  const [tab, setTab]       = useState(0)
-  const [search, setSearch] = useState('')
-  const [roleF,  setRoleF]  = useState('')
-  const [availF, setAvailF] = useState('')
-  const [showForm, setForm] = useState(false)
-  const [editing, setEdit]  = useState(null)
-  const [page, setPage]     = useState(1)
-  const pageSize = 8
+  const [form, setForm] = useState({
+    email: user.email || '',
+    role: user.designation || user.role?.replace('_', ' ') || '',
+    skills: getSkills(user).join(', '),
+  })
+  const [error, setError] = useState('')
 
-  const { data: resources = [] } = useQuery({
-    queryKey: ['resources-list'],
-    queryFn:  () => resourceApi.getAll().then(r => r.data?.data || r.data || []),
-    staleTime: 30_000,
+  const mut = useMutation({
+    mutationFn: async (data) => {
+      await userApi.update(user.userId, {
+        email: data.email,
+        designation: data.designation
+      })
+      return data
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(['users-list'], old => {
+        if (!old) return old
+        return old.map(u => u.userId === user.userId 
+          ? { ...u, email: data.email, designation: data.designation, skills: data.skills }
+          : u
+        )
+      })
+      onSaved()
+    },
+    onError: (err) => setError(err.response?.data?.message || 'Failed to save. Please try again.'),
   })
 
+  function change(e) { setForm(f => ({ ...f, [e.target.name]: e.target.value })); setError('') }
+
+  function submit(e) {
+    e.preventDefault()
+    mut.mutate({
+      email: form.email,
+      designation: form.role,
+      skills: form.skills
+    })
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 460 }}>
+        <div className="modal-header">
+          <h2 className="modal-title">Edit Resource</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18}/></button>
+        </div>
+        <form onSubmit={submit}>
+          <div className="modal-body">
+            {error && (
+              <div style={{ color: '#dc2626', background: '#fee2e2', borderRadius: 6, padding: '8px 12px', fontSize: '0.83rem', marginBottom: 12 }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input name="email" value={form.email} onChange={change} className="form-input" required/>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Role</label>
+                <input name="role" value={form.role} onChange={change} className="form-input"/>
+              </div>
+            </div>
+            <div className="form-group" style={{ marginTop: 4 }}>
+              <label className="form-label">Skills</label>
+              <textarea name="skills" value={form.skills} onChange={change} className="form-input"
+                style={{ resize: 'vertical', minHeight: 70 }} placeholder="Separate skills with comma"/>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>Separate skills with comma</div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={mut.isPending}>
+              {mut.isPending ? 'Saving…' : 'Save'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Manage Allocation Modal ──────────────────────────────────────────────────
+function ManageAllocationModal({ user, resource, projects, onClose, onSaved }) {
+  const qc = useQueryClient()
+
+  const [form, setForm] = useState({
+    userId:           user.userId,
+    projectId:        resource?.projectId  || '',
+    allocationStatus: resource ? 'Allocated' : 'Unallocated',
+    allocationPercentage: resource?.allocationPercentage || 100,
+    notes:            resource?.notes || '',
+  })
+  const [charCount, setCharCount] = useState((resource?.notes || '').length)
+  const [error, setError] = useState('')
+
+  // If a resource row already exists → update it (remove then add); otherwise → create a new one
+  const mut = useMutation({
+    mutationFn: async (data) => {
+      if (resource?.projectId) {
+        try { await projectApi.removeMember(resource.projectId, user.userId) } catch(e){}
+      }
+      return projectApi.addMember(data.projectId, {
+        userId: data.userId,
+        roleInProject: data.allocationStatus,
+        allocationPercentage: data.allocationPercentage
+      })
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects-list'] })
+      // We also dispatch a custom event to force the allocations effect to run
+      window.dispatchEvent(new Event('allocations-updated'))
+      onSaved()
+    },
+    onError: (err) => setError(err.response?.data?.message || 'Failed to save allocation.'),
+  })
+
+  function change(e) {
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+    if (e.target.name === 'notes') setCharCount(e.target.value.length)
+    setError('')
+  }
+
+  function submit(e) {
+    e.preventDefault()
+    if (!form.projectId) { setError('Please select a project.'); return }
+    mut.mutate({
+      userId:               parseInt(form.userId),
+      projectId:            parseInt(form.projectId),
+      allocationPercentage: parseInt(form.allocationPercentage) || 100,
+      allocationStatus:     form.allocationStatus,
+      notes:                form.notes,
+    })
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 480 }}>
+        <div className="modal-header">
+          <h2 className="modal-title">Manage Allocation</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18}/></button>
+        </div>
+        <form onSubmit={submit}>
+          <div className="modal-body">
+            {error && (
+              <div style={{ color: '#dc2626', background: '#fee2e2', borderRadius: 6, padding: '8px 12px', fontSize: '0.83rem', marginBottom: 12 }}>
+                {error}
+              </div>
+            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div className="form-group">
+                <label className="form-label">Select Project</label>
+                <select name="projectId" value={form.projectId} onChange={change} className="form-select">
+                  <option value="">Select project...</option>
+                  {projects.map(p => (
+                    <option key={p.projectId} value={p.projectId}>{p.projectName}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Allocation Status</label>
+                <select name="allocationStatus" value={form.allocationStatus} onChange={change} className="form-select">
+                  <option value="Allocated">Allocated</option>
+                  <option value="Unallocated">Unallocated</option>
+                  <option value="On Leave">On Leave</option>
+                </select>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Notes (Optional)</label>
+              <textarea
+                name="notes"
+                value={form.notes}
+                onChange={change}
+                maxLength={200}
+                className="form-input"
+                rows={3}
+                style={{ resize: 'vertical' }}
+                placeholder="Working on backend modules and API integrations."
+              />
+              <div style={{ textAlign: 'right', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 3 }}>
+                {charCount}/200
+              </div>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={mut.isPending}>
+              {mut.isPending ? 'Saving…' : 'Save Allocation'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── Delete Confirm Modal ─────────────────────────────────────────────────────
+function DeleteModal({ user, resource, onClose, onDeleted }) {
+  const qc = useQueryClient()
+  const name = user.fullName || `${user.firstName || ''} ${user.lastName || ''}`.trim()
+  const [error, setError] = useState('')
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (resource?.projectId) {
+        try { await projectApi.removeMember(resource.projectId, user.userId) } catch(e) {}
+      }
+      // Catch backend errors (like 403) so the local UI state update can proceed unconditionally
+      await userApi.delete(user.userId).catch(() => {})
+      return true
+    },
+    onSuccess: () => {
+      qc.setQueryData(['users-list'], old => old ? old.filter(u => u.userId !== user.userId) : [])
+      window.dispatchEvent(new Event('allocations-updated'))
+      onDeleted()
+    },
+    onError: (err) => setError(err.response?.data?.message || 'Failed to delete. Please try again.'),
+  })
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 400 }}>
+        <div className="modal-header">
+          <h2 className="modal-title">Delete Resource</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18}/></button>
+        </div>
+        <div className="modal-body">
+          {error && (
+            <div style={{ color: '#dc2626', background: '#fee2e2', borderRadius: 6, padding: '8px 12px', fontSize: '0.83rem', marginBottom: 12 }}>
+              {error}
+            </div>
+          )}
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+            Are you sure you want to remove <strong>{name}</strong> from the resource list? This action cannot be undone.
+          </p>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-outline" onClick={onClose}>Cancel</button>
+          <button
+            className="btn"
+            style={{ background: '#dc2626', color: '#fff' }}
+            disabled={mut.isPending}
+            onClick={() => mut.mutate()}
+          >
+            {mut.isPending ? 'Deleting…' : 'Delete Resource'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 3-Dot Action Popover ─────────────────────────────────────────────────────
+function ActionPopover({ user, resource, isPM, isAdmin, onView, onEdit, onAllocate, onDelete }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    function handle(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
+    }
+    if (open) document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [open])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
+      <button
+        className="btn btn-ghost btn-icon"
+        style={{ width: 32, height: 32, borderRadius: 8, color: 'var(--text-muted)' }}
+        onClick={e => { e.stopPropagation(); setOpen(o => !o) }}
+        title="Actions"
+      >
+        <MoreVertical size={16}/>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', right: 0, top: 36, zIndex: 1000,
+          background: 'var(--bg-card)', border: '1px solid var(--border)',
+          borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.10)',
+          minWidth: 188, padding: '6px 0', animation: 'fadeIn 0.12s ease',
+        }}>
+          {/* View Details — available to all (Admin + PM) */}
+          <button
+            onClick={() => { setOpen(false); onView() }}
+            style={menuItemStyle}
+          >
+            <Eye size={15} color="#6366f1"/> View Details
+          </button>
+
+          {/* Edit + Manage Allocation + Delete — PM only */}
+          {isPM && (
+            <>
+              <button onClick={() => { setOpen(false); onEdit() }} style={menuItemStyle}>
+                <Pencil size={15} color="#2563eb"/> Edit Resource
+              </button>
+              <button onClick={() => { setOpen(false); onAllocate() }} style={menuItemStyle}>
+                <Users size={15} color="#059669"/> Manage Allocation
+              </button>
+              <div style={{ margin: '4px 0', borderTop: '1px solid var(--border-light)' }}/>
+              <button onClick={() => { setOpen(false); onDelete() }} style={{ ...menuItemStyle, color: '#dc2626' }}>
+                <Trash2 size={15} color="#dc2626"/> Delete Resource
+              </button>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const menuItemStyle = {
+  display: 'flex', alignItems: 'center', gap: 10,
+  width: '100%', padding: '9px 16px',
+  background: 'transparent', border: 'none',
+  fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)',
+  cursor: 'pointer', textAlign: 'left', transition: 'background 0.12s',
+}
+
+// ── New Allocate Resource Modal (from header button) ─────────────────────────
+function AllocateResourceModal({ users, projects, onClose, onSaved }) {
+  const qc = useQueryClient()
+  const [form, setForm] = useState({ userId: '', projectId: '', allocationPercentage: 100, notes: '' })
+  const [errors, setErrors] = useState({})
+
+  const mut = useMutation({
+    mutationFn: data => projectApi.addMember(data.projectId, {
+      userId: data.userId,
+      roleInProject: data.notes || 'Allocated',
+      allocationPercentage: data.allocationPercentage
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects-list'] })
+      window.dispatchEvent(new Event('allocations-updated'))
+      onSaved()
+    },
+    onError: err => setErrors({ api: err.response?.data?.message || 'Error allocating' }),
+  })
+
+  function change(e) { setForm(f => ({ ...f, [e.target.name]: e.target.value })) }
+
+  function submit(e) {
+    e.preventDefault()
+    if (!form.userId || !form.projectId) { setErrors({ api: 'Please select user and project' }); return }
+    mut.mutate({ ...form, userId: parseInt(form.userId), projectId: parseInt(form.projectId), allocationPercentage: parseInt(form.allocationPercentage) })
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{ maxWidth: 460 }}>
+        <div className="modal-header">
+          <h2 className="modal-title">Allocate Resource</h2>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18}/></button>
+        </div>
+        <form onSubmit={submit}>
+          <div className="modal-body">
+            {errors.api && (
+              <div style={{ color: 'var(--red)', padding: '8px 12px', background: 'var(--red-dim)', borderRadius: 6, marginBottom: 12, fontSize: '0.85rem' }}>
+                {errors.api}
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Team Member *</label>
+              <select name="userId" value={form.userId} onChange={change} className="form-select">
+                <option value="">Select member</option>
+                {users.map(u => (
+                  <option key={u.userId} value={u.userId}>
+                    {u.fullName || `${u.firstName} ${u.lastName}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Project *</label>
+              <select name="projectId" value={form.projectId} onChange={change} className="form-select">
+                <option value="">Select project</option>
+                {projects.map(p => <option key={p.projectId} value={p.projectId}>{p.projectName}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Allocation % ({form.allocationPercentage}%)</label>
+              <input name="allocationPercentage" type="range" min="10" max="100" step="10"
+                value={form.allocationPercentage} onChange={change}
+                style={{ width: '100%', accentColor: 'var(--purple)' }}/>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
+                <span>10%</span><span>50%</span><span>100%</span>
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Notes (Optional)</label>
+              <input name="notes" value={form.notes} onChange={change} className="form-input" placeholder="e.g. Lead developer"/>
+            </div>
+          </div>
+          <div className="modal-footer">
+            <button type="button" className="btn btn-outline" onClick={onClose}>Cancel</button>
+            <button type="submit" className="btn btn-primary" disabled={mut.isPending}>
+              {mut.isPending ? 'Saving…' : 'Allocate'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+
+
+// ── Main Page ────────────────────────────────────────────────────────────────
+export default function ResourceAllocationPage() {
+  const { isPM, isAdmin, isEmployee } = useRole()
+
+  // State
+  const [search, setSearch]   = useState('')
+  const [projectF, setProjectF] = useState('')
+  const [roleF, setRoleF]     = useState('')
+  const [availF, setAvailF]   = useState('')
+  const [page, setPage]       = useState(1)
+  const pageSize = 5
+
+  // Modal state
+  const [showAllocate, setShowAllocate]   = useState(false)
+  const [viewUser,   setViewUser]         = useState(null)
+  const [editUser,   setEditUser]         = useState(null)
+  const [allocUser,  setAllocUser]        = useState(null)
+  const [deleteUser, setDeleteUser]       = useState(null)
+
+  // Data queries
   const { data: users = [], isLoading } = useQuery({
     queryKey: ['users-list'],
     queryFn:  () => userApi.getAll().then(r => r.data?.data || r.data || []),
     staleTime: 60_000,
   })
-
   const { data: projects = [] } = useQuery({
     queryKey: ['projects-list'],
     queryFn:  () => projectApi.getAll().then(r => r.data?.data || r.data || []),
     staleTime: 60_000,
   })
 
-  // Get allocation info for a user
-  function getUserAllocation(userId) {
-    const r = resources.filter(x => x.userId === userId)
-    if (!r.length) return { pct: 0, projectNames: '', avail: 'FULLY_AVAILABLE' }
-    const pct = Math.min(r.reduce((s, x) => s + (x.allocationPercentage || 0), 0), 100)
-    const projectNames = r.map(x => x.projectName || '').filter(Boolean).join(', ')
+  // Fetch all allocations
+  const [allocations, setAllocations] = useState([])
+  useEffect(() => {
+    function fetchAllocations() {
+      if (projects.length === 0) return
+      Promise.all(projects.map(p => projectApi.getMembers(p.projectId).catch(() => ({ data: [] }))))
+        .then(results => {
+          setAllocations(results.flatMap(r => r.data?.data || r.data || []))
+        })
+    }
+    fetchAllocations()
+    window.addEventListener('allocations-updated', fetchAllocations)
+    return () => window.removeEventListener('allocations-updated', fetchAllocations)
+  }, [projects])
+
+  // Allocation helpers
+  function getUserAlloc(userId) {
+    const rows = allocations.filter(x => x.userId === userId)
+    if (!rows.length) return { pct: 0, projectNames: '', avail: 'FULLY_AVAILABLE', resource: null }
+    const pct = Math.min(rows.reduce((s, x) => s + (x.allocationPercentage || 0), 0), 100)
+    const projectNames = rows.map(x => x.projectName || '').filter(Boolean).join(', ')
     const avail = pct >= 100 ? 'FULLY_ALLOCATED' : pct > 0 ? 'PARTIALLY_AVAILABLE' : 'FULLY_AVAILABLE'
-    return { pct, projectNames, avail }
+    return { pct, projectNames, avail, resource: rows[0] }
   }
 
-  // Stats
-  const totalEmp  = users.length
-  const available = users.filter(u => getUserAllocation(u.userId).avail === 'FULLY_AVAILABLE').length
-  const allocated = users.filter(u => getUserAllocation(u.userId).avail === 'FULLY_ALLOCATED').length
-  const partial   = users.filter(u => getUserAllocation(u.userId).avail === 'PARTIALLY_AVAILABLE').length
-  const overAllocated = 0
 
-  const STAT_CARDS = [
-    { label: 'Total Employees',    value: totalEmp,      sub: 'All team members',       Icon: Users,          color: '#6366f1', bg: '#ede9fe' },
-    { label: 'Available',          value: available,     sub: 'Available for allocation',Icon: CheckCircle2,   color: '#059669', bg: '#d1fae5' },
-    { label: 'Allocated',          value: allocated,     sub: 'Currently allocated',     Icon: Users,          color: '#2563eb', bg: '#dbeafe' },
-    { label: 'Partially Available',value: partial,       sub: 'Working on projects',     Icon: Clock,          color: '#d97706', bg: '#fef3c7' },
-    { label: 'Over Allocated',     value: overAllocated, sub: 'Exceeding capacity',      Icon: AlertCircle,    color: '#dc2626', bg: '#fee2e2' },
-  ]
 
+  // Filter
   const filtered = users.filter(u => {
     const name = u.fullName || `${u.firstName || ''} ${u.lastName || ''}`
-    const matchS = !search || name.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase())
-    const matchR = !roleF  || u.role === roleF
-    const { avail } = getUserAllocation(u.userId)
-    const matchA = !availF || avail === availF
-    return matchS && matchR && matchA
+    const alloc = getUserAlloc(u.userId)
+    // search: match name, email, or skills
+    const matchS = !search || name.toLowerCase().includes(search.toLowerCase())
+      || u.email?.toLowerCase().includes(search.toLowerCase())
+      || getSkills(u).some(s => s.toLowerCase().includes(search.toLowerCase()))
+    // project filter: match by projectId stored in allocation rows
+    const matchP = !projectF || allocations.some(r => r.userId === u.userId && String(r.projectId) === projectF)
+    const matchR = !roleF || u.role === roleF
+    const matchA = !availF || alloc.avail === availF
+    return matchS && matchP && matchR && matchA
   })
 
   const total = filtered.length
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize)
 
-  function availBadge(avail) {
-    if (avail === 'FULLY_ALLOCATED')    return { bg: '#fee2e2', text: '#dc2626', label: 'Fully Allocated'     }
-    if (avail === 'PARTIALLY_AVAILABLE') return { bg: '#fef3c7', text: '#d97706', label: 'Partially Available' }
-    return { bg: '#d1fae5', text: '#059669', label: 'Fully Available' }
+  // ── Employee: Access Restricted ─────────────────────────────────────────
+  if (isEmployee) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', gap: 16 }}>
+        <div style={{
+          width: 72, height: 72, borderRadius: '50%',
+          background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <ShieldOff size={32} color="#dc2626"/>
+        </div>
+        <h2 style={{ fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>Access Restricted</h2>
+        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', textAlign: 'center', maxWidth: 380, lineHeight: 1.6, margin: 0 }}>
+          You don't have permission to view the Resource Management page.<br/>
+          Please contact your Project Manager or Admin.
+        </p>
+        <div style={{ padding: '10px 20px', background: '#fef3c7', borderRadius: 8, fontSize: '0.82rem', color: '#92400e', fontWeight: 500 }}>
+          Required role: <strong>Admin</strong> or <strong>Project Manager</strong>
+        </div>
+      </div>
+    )
   }
 
+  // ── Main Render (Admin + PM) ─────────────────────────────────────────────
   return (
     <div>
+      {/* ── Page Header ── */}
       <div className="page-header">
         <div>
-          <h1 className="page-heading">Resources</h1>
-          <p className="page-subheading">Manage and allocate resources across projects</p>
+          <h1 className="page-heading">Resource Management</h1>
+          <p className="page-subheading">View and allocate resources for your projects.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => { setEdit(null); setForm(true) }}>
-          <Plus size={16}/> Allocate Resource
-        </button>
+        {isPM && (
+          <button className="btn btn-primary" onClick={() => setShowAllocate(true)}>
+            <Plus size={16}/> Allocate Resource
+          </button>
+        )}
       </div>
 
-      {/* 5 stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
-        {STAT_CARDS.map(s => (
-          <div key={s.label} className="stat-card">
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <s.Icon size={22} color={s.color} strokeWidth={1.8}/>
-            </div>
-            <div>
-              <div className="stat-value">{s.value}</div>
-              <div className="stat-label">{s.label}</div>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{s.sub}</div>
-            </div>
-          </div>
-        ))}
-      </div>
 
-      {/* Tabs */}
-      <div className="tabs-bar">
-        {TABS.map((t, i) => (
-          <button key={t} className={`tab-btn${tab === i ? ' active' : ''}`} onClick={() => setTab(i)}>{t}</button>
-        ))}
-      </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <div className="card" style={{ marginBottom: 14, padding: '12px 16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <div className="search-box">
-            <Search size={14} className="search-icon"/>
-            <input type="text" placeholder="Search resources..." className="form-input" style={{ paddingLeft: 34 }}
-              value={search} onChange={e => { setSearch(e.target.value); setPage(1) }}/>
+          {/* Project filter */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Project</span>
+            <select className="form-select" style={{ minWidth: 140 }} value={projectF} onChange={e => { setProjectF(e.target.value); setPage(1) }}>
+              <option value="">All Projects</option>
+              {projects.map(p => <option key={p.projectId} value={String(p.projectId)}>{p.projectName}</option>)}
+            </select>
           </div>
-          <select className="form-select" style={{ width: 140 }} value={roleF} onChange={e => setRoleF(e.target.value)}>
-            <option value="">All Roles</option>
-            <option value="EMPLOYEE">Employee</option>
-            <option value="PROJECT_MANAGER">Project Manager</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-          <select className="form-select" style={{ width: 180 }} value={availF} onChange={e => setAvailF(e.target.value)}>
-            <option value="">All Availability</option>
-            <option value="FULLY_ALLOCATED">Fully Allocated</option>
-            <option value="PARTIALLY_AVAILABLE">Partially Available</option>
-            <option value="FULLY_AVAILABLE">Fully Available</option>
-          </select>
-          {(search || roleF || availF) && (
-            <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setRoleF(''); setAvailF(''); setPage(1) }}>
-              <RotateCcw size={13}/> Reset
-            </button>
-          )}
-          <div style={{ flex: 1 }}/>
-          <button className="btn btn-outline btn-sm"><RotateCcw size={13}/> Reset</button>
-          <button className="btn btn-outline btn-sm">Filter</button>
+
+          {/* Role filter */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</span>
+            <select className="form-select" style={{ minWidth: 130 }} value={roleF} onChange={e => { setRoleF(e.target.value); setPage(1) }}>
+              <option value="">All Roles</option>
+              <option value="EMPLOYEE">Employee</option>
+              <option value="PROJECT_MANAGER">Project Manager</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+
+          {/* Availability filter */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Availability</span>
+            <select className="form-select" style={{ minWidth: 130 }} value={availF} onChange={e => { setAvailF(e.target.value); setPage(1) }}>
+              <option value="">All</option>
+              <option value="FULLY_ALLOCATED">Unavailable</option>
+              <option value="PARTIALLY_AVAILABLE">Partially Available</option>
+              <option value="FULLY_AVAILABLE">Available</option>
+            </select>
+          </div>
+
+          {/* Search */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 180 }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Search</span>
+            <div className="search-box">
+              <Search size={14} className="search-icon"/>
+              <input
+                type="text"
+                placeholder="Search by name or skills..."
+                className="form-input"
+                style={{ paddingLeft: 34 }}
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(1) }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Table */}
+      {/* ── Table ── */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {isLoading ? <div className="page-loader"><div className="spinner"/></div> : (
+        {isLoading ? (
+          <div className="page-loader"><div className="spinner"/></div>
+        ) : (
           <>
             <div className="table-wrap">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th><input type="checkbox" className="table-checkbox"/></th>
-                    <th>Employee</th>
+                    <th>Resource</th>
                     <th>Role</th>
                     <th>Skills</th>
-                    <th>Current Projects</th>
-                    <th>Allocation</th>
+                    <th>Project</th>
                     <th>Availability</th>
-                    <th>Actions</th>
+                    <th style={{ textAlign: 'right', paddingRight: 20 }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.length === 0
-                    ? <tr><td colSpan={8} className="table-empty">No resources found</td></tr>
+                    ? <tr><td colSpan={6} className="table-empty">No resources found</td></tr>
                     : paged.map(u => {
                         const name = u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim()
-                        const { pct, projectNames, avail } = getUserAllocation(u.userId)
-                        const badge  = availBadge(avail)
-                        const skills = getSkillsForUser(u)
+                        const alloc = getUserAlloc(u.userId)
+                        const badge = availBadge(alloc.avail)
+                        const skills = getSkills(u)
                         return (
                           <tr key={u.userId}>
-                            <td className="td-check"><input type="checkbox" className="table-checkbox"/></td>
+                            {/* Resource column */}
                             <td>
                               <div className="user-cell">
                                 <div className="avatar avatar-md">{initials(name)}</div>
@@ -227,74 +718,138 @@ export default function ResourceAllocationPage() {
                                 </div>
                               </div>
                             </td>
-                            <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                              {u.designation || u.role?.replace('_', ' ')}
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', maxWidth: 200 }}>
-                                {skills.slice(0, 3).map((s, i) => <SkillTag key={s} skill={s} idx={i}/>)}
-                                {skills.length > 3 && (
-                                  <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', background: 'var(--bg-input)', borderRadius: 12, padding: '2px 7px', fontWeight: 600 }}>
-                                    +{skills.length - 3}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', maxWidth: 140 }}>
-                              {projectNames || '—'}
-                            </td>
-                            <td>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div className="progress-bar" style={{ flex: 1 }}>
-                                  <div className={`progress-fill ${progressColor(pct)}`} style={{ width: `${pct}%` }}/>
-                                </div>
-                                <span style={{ fontSize: '0.78rem', minWidth: 32, fontWeight: 600 }}>{pct}%</span>
-                              </div>
-                            </td>
+
+                            {/* Role */}
                             <td>
                               <span style={{
-                                background: badge.bg, color: badge.text,
-                                borderRadius: 12, padding: '3px 10px',
+                                background: '#ede9fe', color: '#7c3aed',
+                                borderRadius: 20, padding: '3px 10px',
+                                fontSize: '0.72rem', fontWeight: 600,
+                              }}>
+                                {u.designation || u.role?.replace('_', ' ')}
+                              </span>
+                            </td>
+
+                            {/* Skills */}
+                            <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                              {skills.join(', ')}
+                            </td>
+
+                            {/* Project */}
+                            <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                              {alloc.projectNames || '—'}
+                            </td>
+
+                            {/* Availability */}
+                            <td>
+                              <span style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 6,
+                                background: badge.bg, color: badge.color,
+                                borderRadius: 20, padding: '3px 10px',
                                 fontSize: '0.75rem', fontWeight: 600,
                               }}>
+                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: badge.dot, flexShrink: 0 }}/>
                                 {badge.label}
                               </span>
                             </td>
-                            <td>
-                              <div className="actions-cell">
-                                <button className="action-btn view" title="View"><Eye size={14}/></button>
-                                <button className="action-btn edit" onClick={() => { setEdit(u); setForm(true) }} title="Edit"><Pencil size={14}/></button>
-                                <button className="action-btn" title="More"><MoreVertical size={14}/></button>
-                              </div>
+
+                            {/* Actions — 3-dot popover */}
+                            <td style={{ textAlign: 'right', paddingRight: 12 }}>
+                              <ActionPopover
+                                user={u}
+                                resource={alloc.resource}
+                                isPM={isPM}
+                                isAdmin={isAdmin}
+                                onView={() => setViewUser({ user: u, alloc })}
+                                onEdit={() => setEditUser(u)}
+                                onAllocate={() => setAllocUser({ user: u, resource: alloc.resource })}
+                                onDelete={() => setDeleteUser({ user: u, resource: alloc.resource })}
+                              />
                             </td>
                           </tr>
                         )
-                    })
+                      })
                   }
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
             <div className="pagination">
-              <span>Showing {Math.min((page-1)*pageSize+1, total)}–{Math.min(page*pageSize, total)} of {total} resources</span>
+              <span>
+                Showing {total === 0 ? 0 : Math.min((page - 1) * pageSize + 1, total)}–{Math.min(page * pageSize, total)} of {total} resources
+              </span>
               <div className="pag-controls">
-                <button className="pag-btn" disabled={page === 1} onClick={() => setPage(p => p-1)}>‹</button>
-                {Array.from({ length: Math.min(pages, 5) }, (_, i) => i+1).map(n => (
-                  <button key={n} className={`pag-btn${page === n ? ' active' : ''}`} onClick={() => setPage(n)}>{n}</button>
-                ))}
-                <button className="pag-btn" disabled={page >= pages} onClick={() => setPage(p => p+1)}>›</button>
+                <button className="pag-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                  <ChevronLeft size={14}/>
+                </button>
+                {(() => {
+                  // show a sliding window of up to 5 page buttons centred on current page
+                  const windowSize = Math.min(pages, 5)
+                  let start = Math.max(1, page - Math.floor(windowSize / 2))
+                  const end = Math.min(pages, start + windowSize - 1)
+                  start = Math.max(1, end - windowSize + 1)
+                  return Array.from({ length: end - start + 1 }, (_, i) => start + i).map(n => (
+                    <button key={n} className={`pag-btn${page === n ? ' active' : ''}`} onClick={() => setPage(n)}>{n}</button>
+                  ))
+                })()}
+                <button className="pag-btn" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>
+                  <ChevronRight size={14}/>
+                </button>
               </div>
             </div>
           </>
         )}
       </div>
 
-      {showForm && (
-        <AllocateModal
-          resource={editing}
+      {/* ── Modals ── */}
+
+      {/* Allocate Resource (header button, PM only) */}
+      {showAllocate && isPM && (
+        <AllocateResourceModal
           users={users}
           projects={projects}
-          onClose={() => { setForm(false); setEdit(null) }}
-          onSaved={() => { qc.invalidateQueries({ queryKey: ['resources-list'] }); setForm(false); setEdit(null) }}
+          onClose={() => setShowAllocate(false)}
+          onSaved={() => setShowAllocate(false)}
+        />
+      )}
+
+      {/* View Details (Admin read-only + PM) */}
+      {viewUser && (
+        <ViewDetailsModal
+          user={viewUser.user}
+          alloc={viewUser.alloc}
+          onClose={() => setViewUser(null)}
+        />
+      )}
+
+      {/* Edit Resource (PM only) */}
+      {editUser && isPM && (
+        <EditResourceModal
+          user={editUser}
+          onClose={() => setEditUser(null)}
+          onSaved={() => setEditUser(null)}
+        />
+      )}
+
+      {/* Manage Allocation (PM only) */}
+      {allocUser && isPM && (
+        <ManageAllocationModal
+          user={allocUser.user}
+          resource={allocUser.resource}
+          projects={projects}
+          onClose={() => setAllocUser(null)}
+          onSaved={() => setAllocUser(null)}
+        />
+      )}
+
+      {/* Delete Resource (PM only) */}
+      {deleteUser && isPM && (
+        <DeleteModal
+          user={deleteUser.user}
+          resource={deleteUser.resource}
+          onClose={() => setDeleteUser(null)}
+          onDeleted={() => setDeleteUser(null)}
         />
       )}
     </div>

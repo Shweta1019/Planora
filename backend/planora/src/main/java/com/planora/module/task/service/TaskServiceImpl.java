@@ -1,5 +1,6 @@
 package com.planora.module.task.service;
 
+import com.planora.module.notification.service.NotificationService;
 import com.planora.module.project.entity.Project;
 import com.planora.module.project.exception.ProjectNotFoundException;
 import com.planora.module.project.repository.ProjectRepository;
@@ -30,11 +31,12 @@ import java.util.stream.Collectors;
 @Transactional
 public class TaskServiceImpl implements TaskService {
 
-    private final TaskRepository taskRepository;
-    private final CommentRepository commentRepository;
-    private final ProjectRepository projectRepository;
-    private final UserRepository userRepository;
-    private final TaskMapper taskMapper;
+    private final TaskRepository         taskRepository;
+    private final CommentRepository      commentRepository;
+    private final ProjectRepository      projectRepository;
+    private final UserRepository         userRepository;
+    private final TaskMapper             taskMapper;
+    private final NotificationService    notificationService;
 
     @Override
     public TaskResponseDto createTask(TaskCreateRequestDto dto) {
@@ -56,7 +58,19 @@ public class TaskServiceImpl implements TaskService {
                 .assignedTo(assignedTo)
                 .build();
 
-        return taskMapper.toResponseDto(taskRepository.save(task));
+        Task saved = taskRepository.save(task);
+
+        // fire notification to the assigned employee
+        if (assignedTo != null) {
+            notificationService.send(
+                    assignedTo.getUserId(),
+                    "New Task Assigned",
+                    "You have been assigned a new task \"" + dto.getTitle() + "\" in project " + project.getProjectName() + ".",
+                    "TASK_ASSIGNED"
+            );
+        }
+
+        return taskMapper.toResponseDto(saved);
     }
 
     @Override
@@ -72,6 +86,14 @@ public class TaskServiceImpl implements TaskService {
             User user = userRepository.findById(dto.getAssignedToId())
                     .orElseThrow(() -> new UserNotFoundException(dto.getAssignedToId()));
             task.setAssignedTo(user);
+
+            // re-assignment notification
+            notificationService.send(
+                    user.getUserId(),
+                    "Task Re-assigned",
+                    "Task \"" + task.getTitle() + "\" has been assigned to you.",
+                    "TASK_ASSIGNED"
+            );
         }
 
         return taskMapper.toResponseDto(taskRepository.save(task));
@@ -114,16 +136,29 @@ public class TaskServiceImpl implements TaskService {
     @Override
     public CommentResponseDto addComment(Long taskId, CommentCreateRequestDto dto) {
         Task task = findOrThrow(taskId);
-        User user = userRepository.findById(dto.getUserId())
+        User commenter = userRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new UserNotFoundException(dto.getUserId()));
 
         Comment comment = Comment.builder()
                 .content(dto.getContent())
                 .task(task)
-                .user(user)
+                .user(commenter)
                 .build();
 
-        return taskMapper.toCommentDto(commentRepository.save(comment));
+        CommentResponseDto saved = taskMapper.toCommentDto(commentRepository.save(comment));
+
+        // notify the task's assignee that someone commented (if not the same person)
+        if (task.getAssignedTo() != null &&
+                !task.getAssignedTo().getUserId().equals(commenter.getUserId())) {
+            notificationService.send(
+                    task.getAssignedTo().getUserId(),
+                    "New Comment",
+                    commenter.getFullName() + " commented on task \"" + task.getTitle() + "\".",
+                    "NEW_COMMENT"
+            );
+        }
+
+        return saved;
     }
 
     @Override
