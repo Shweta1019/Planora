@@ -5,14 +5,14 @@ import { authApi } from '../../../api/authApi'
 import { Mail, Lock, Eye, EyeOff, Loader2, User, Phone } from 'lucide-react'
 
 const ROLES = [
-  { value: 'EMPLOYEE',        label: 'Employee',        icon: '👤' },
+  { value: 'EMPLOYEE', label: 'Employee', icon: '👤' },
   { value: 'PROJECT_MANAGER', label: 'Project Manager', icon: '📁' },
-  { value: 'ADMIN',           label: 'Admin',           icon: '🔵' },
+  { value: 'ADMIN', label: 'Admin', icon: '🔵' },
 ]
 
 export default function SignupPage() {
   const navigate = useNavigate()
-  const setAuth  = useAuthStore(s => s.setAuth)
+  const setAuth = useAuthStore(s => s.setAuth)
 
   const [form, setForm] = useState({
     firstName: '', lastName: '', email: '',
@@ -20,9 +20,9 @@ export default function SignupPage() {
     phoneNo: '',
     role: 'EMPLOYEE',
   })
-  const [showPass, setShow]   = useState(false)
-  const [loading, setLoad]    = useState(false)
-  const [error, setError]     = useState('')
+  const [showPass, setShow] = useState(false)
+  const [loading, setLoad] = useState(false)
+  const [error, setError] = useState('')
 
   function change(e) {
     const { name, value } = e.target
@@ -44,19 +44,19 @@ export default function SignupPage() {
     setLoad(true)
     try {
       const res = await authApi.register({
-        firstName:   form.firstName,
-        lastName:    form.lastName,
-        email:       form.email,
-        password:    form.password,
-        phoneNo:     form.phoneNo,
-        role:        form.role,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        email: form.email,
+        password: form.password,
+        phoneNo: form.phoneNo,
+        role: form.role,
       })
       const d = res.data?.data || res.data
       setAuth(d.token, {
-        userId:   d.userId,
+        userId: d.userId,
         fullName: d.fullName || `${form.firstName} ${form.lastName}`.trim(),
-        email:    d.email,
-        role:     d.role,
+        email: d.email,
+        role: d.role,
       })
       navigate('/dashboard')
     } catch (err) {
@@ -76,9 +76,9 @@ export default function SignupPage() {
             <div className="login-brand-row">
               <div className="login-logo-box">
                 <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-                  <rect width="32" height="32" rx="8" fill="white" fillOpacity="0.2"/>
-                  <path d="M8 24V10l8-4 8 4v14l-8 4-8-4z" fill="white" fillOpacity="0.9"/>
-                  <path d="M16 6v20M8 10l8 4 8-4" stroke="white" strokeWidth="1.5"/>
+                  <rect width="32" height="32" rx="8" fill="white" fillOpacity="0.2" />
+                  <path d="M8 24V10l8-4 8 4v14l-8 4-8-4z" fill="white" fillOpacity="0.9" />
+                  <path d="M16 6v20M8 10l8 4 8-4" stroke="white" strokeWidth="1.5" />
                 </svg>
               </div>
               <span className="login-brand-name">Planora</span>
@@ -88,7 +88,7 @@ export default function SignupPage() {
               Join Planora Today
             </h2>
             <p className="login-left-desc">
-              Create your account and start collaborating with your team. 
+              Create your account and start collaborating with your team.
               Manage projects, track tasks, and deliver results efficiently.
             </p>
 
