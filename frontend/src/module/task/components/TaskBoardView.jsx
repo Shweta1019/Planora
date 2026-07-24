@@ -16,7 +16,7 @@ function TaskCard({ task, onEdit, onDelete }) {
   return (
     <div className="task-card">
       <div className="task-card-project">{task.projectName || 'General'}</div>
-      <div className="task-card-title">{task.taskName}</div>
+      <div className="task-card-title">{task.title}</div>
       <div className="task-card-footer">
         <div className="avatar avatar-sm">{task.assignedToName?.[0] || '?'}</div>
         <span>{formatDate(task.dueDate)}</span>

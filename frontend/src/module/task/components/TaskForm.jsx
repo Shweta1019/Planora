@@ -7,10 +7,10 @@ export default function TaskFormModal({ task, projects = [], users = [], isEmplo
   const isEdit = !!task
 
   const [form, setForm] = useState({
-    taskName:    task?.taskName    || '',
+    title:       task?.title       || '',
     description: task?.description || '',
     projectId:   task?.projectId   || '',
-    assignedTo:  task?.assignedTo  || '',
+    assignedToId:task?.assignedToId|| '',
     priority:    task?.priority    || 'MEDIUM',
     status:      task?.status      || 'TO_DO',
     dueDate:     task?.dueDate?.slice(0, 10) || '',
@@ -33,12 +33,12 @@ export default function TaskFormModal({ task, projects = [], users = [], isEmplo
 
   function submit(e) {
     e.preventDefault()
-    if (!form.taskName.trim()) { setErrors({ taskName: 'Task name required' }); return }
+    if (!form.title.trim()) { setErrors({ title: 'Task name required' }); return }
     if (!form.projectId)       { setErrors({ projectId: 'Select a project' }); return }
     mut.mutate({
       ...form,
       projectId:   parseInt(form.projectId),
-      assignedTo:  form.assignedTo ? parseInt(form.assignedTo) : null,
+      assignedToId:form.assignedToId ? parseInt(form.assignedToId) : null,
       completionPercentage: parseInt(form.completionPercentage) || 0,
     })
   }
@@ -59,8 +59,8 @@ export default function TaskFormModal({ task, projects = [], users = [], isEmplo
 
             <div className="form-group">
               <label className="form-label">Task Name *</label>
-              <input name="taskName" value={form.taskName} onChange={change} className="form-input" placeholder="Task title..." disabled={locked} />
-              {errors.taskName && <span className="form-error">{errors.taskName}</span>}
+              <input name="title" value={form.title} onChange={change} className="form-input" placeholder="Task title..." disabled={locked} />
+              {errors.title && <span className="form-error">{errors.title}</span>}
             </div>
 
             <div className="form-group">
@@ -79,7 +79,7 @@ export default function TaskFormModal({ task, projects = [], users = [], isEmplo
               </div>
               <div className="form-group">
                 <label className="form-label">Assigned To</label>
-                <select name="assignedTo" value={form.assignedTo} onChange={change} className="form-select" disabled={locked}>
+                <select name="assignedToId" value={form.assignedToId} onChange={change} className="form-select" disabled={locked}>
                   <option value="">Unassigned</option>
                   {users.map(u => <option key={u.userId} value={u.userId}>{u.fullName || `${u.firstName} ${u.lastName}`}</option>)}
                 </select>

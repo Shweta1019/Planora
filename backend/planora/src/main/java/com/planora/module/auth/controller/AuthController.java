@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/auth")
@@ -38,15 +39,27 @@ public class AuthController {
     /* ── LOGIN ─────────────────────────────────────────────── */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<JwtResponseDto>> login(@Valid @RequestBody LoginRequestDto dto) {
+        
+        // 1. Manual Validation for custom error messages ("Wrong user" / "Wrong password")
+        Optional<User> userOpt = userRepository.findByEmail(dto.getEmail());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Wrong user"));
+        }
+
+        User user = userOpt.get();
+        if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Wrong password"));
+        }
+
+        // 2. Standard Spring Security Authentication
         authManager.authenticate(
                 new UsernamePasswordAuthenticationToken(dto.getEmail(), dto.getPassword())
         );
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(dto.getEmail());
         String token = jwtUtil.generateToken(userDetails);
-
-        User user = userRepository.findByEmail(dto.getEmail())
-                .orElseThrow(() -> new IllegalStateException("User vanished after auth"));
 
         return ResponseEntity.ok(ApiResponse.success("Login successful", buildResponse(token, user)));
     }
@@ -83,6 +96,24 @@ public class AuthController {
                 .body(ApiResponse.success("Registration successful", buildResponse(token, newUser)));
     }
 
+    /* ── FORGOT PASSWORD ──────────────────────────────────── */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> body) {
+        String email = body.get("email");
+        
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("Email is required"));
+        }
+        
+        if (!userRepository.existsByEmail(email)) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Wrong user"));
+        }
+
+        // TODO: In the future, write logic here to generate an OTP/Token and send it via Email
+        
+        return ResponseEntity.ok(ApiResponse.success("If an account exists, a password reset link has been sent to your email."));
+    }
+
     /* ── GET ME — returns current logged-in user profile ──── */
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getMe(@AuthenticationPrincipal UserDetails principal) {
@@ -105,7 +136,7 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Profile fetched", profile));
     }
 
-    /* ── CHANGE PASSWORD ──────────────────────────────────── */
+    /* ── CHANGE PASSWORD (requires current password) ─────── */
     @PutMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @AuthenticationPrincipal UserDetails principal,
@@ -131,6 +162,28 @@ public class AuthController {
         userRepository.save(user);
 
         return ResponseEntity.ok(ApiResponse.success("Password updated successfully"));
+    }
+
+    /* ── RESET PASSWORD (no current password — dashboard flow) */
+    @PutMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @AuthenticationPrincipal UserDetails principal,
+            @RequestBody Map<String, String> body) {
+
+        String newPassword = body.get("newPassword");
+
+        if (newPassword == null || newPassword.length() < 6) {
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.error("New password must be at least 6 characters"));
+        }
+
+        User user = userRepository.findByEmail(principal.getUsername())
+                .orElseThrow(() -> new IllegalStateException("User not found"));
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully"));
     }
 
     /* ── UPDATE OWN PROFILE ───────────────────────────────── */

@@ -4,7 +4,7 @@ import { useRole, ROLES } from '../store/useRole'
 import {
   LayoutDashboard, FolderKanban, CheckSquare, Users,
   Wallet, FileText, BarChart2, Bell, Activity,
-  Settings, ChevronLeft, ChevronRight, LogOut, Boxes
+  Settings, ChevronLeft, ChevronRight, LogOut, Boxes, UserPlus
 } from 'lucide-react'
 
 // All nav items with their allowed roles (empty = all roles)
@@ -25,7 +25,7 @@ const ALL_NAV = [
     to: '/tasks',
     icon: CheckSquare,
     label: 'Tasks',
-    roles: [ROLES.ADMIN, ROLES.PM, ROLES.EMPLOYEE],
+    roles: [ROLES.PM, ROLES.EMPLOYEE],   // Hidden from ADMIN
   },
   {
     to: '/resources',
@@ -37,6 +37,12 @@ const ALL_NAV = [
     to: '/users',
     icon: Users,
     label: 'Users',
+    roles: [ROLES.ADMIN],                          // Admin only
+  },
+  {
+    to: '/signup',
+    icon: UserPlus,
+    label: 'Create Account',
     roles: [ROLES.ADMIN],                          // Admin only
   },
   {

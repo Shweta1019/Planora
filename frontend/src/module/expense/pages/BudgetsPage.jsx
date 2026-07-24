@@ -1,49 +1,53 @@
-import { useState } from 'react'
-import { useQuery, useQueries } from '@tanstack/react-query'
+import { useState, useMemo, useEffect } from 'react'
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { expenseApi } from '../../../api/expenseApi'
 import { projectApi } from '../../../api/projectApi'
-import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell,
-} from 'recharts'
-import { Download, Plus, Home, ChevronRight } from 'lucide-react'
-import { formatCurrency } from '../../../utils/formatDate'
+import { useRole } from '../../../store/useRole'
+import { Plus, Search, MoreVertical } from 'lucide-react'
+import BudgetFormModal from '../components/BudgetFormModal'
+import BudgetDetailsModal from '../components/BudgetDetailsModal'
+import DeleteBudgetModal from '../components/DeleteBudgetModal'
 
-const PROJECT_ICONS = ['🌐', '📱', '🏪', '⚙️', '🔧', '🖥️', '📊', '🎨', '🔬', '📦']
-function getProjectIcon(name = '', idx = 0) {
-  const n = name.toLowerCase()
-  if (n.includes('web') || n.includes('site')) return '🌐'
-  if (n.includes('mobile') || n.includes('app')) return '📱'
-  if (n.includes('shop') || n.includes('ecom')) return '🏪'
-  if (n.includes('api') || n.includes('backend')) return '⚙️'
-  if (n.includes('tool') || n.includes('internal')) return '🔧'
-  if (n.includes('crm') || n.includes('erp')) return '🖥️'
-  if (n.includes('report') || n.includes('data')) return '📊'
-  return PROJECT_ICONS[idx % PROJECT_ICONS.length]
-}
-const ICON_COLORS = ['#ede9fe', '#dbeafe', '#d1fae5', '#fef3c7', '#fee2e2', '#e0f2fe']
-const ICON_TEXT = ['#7c3aed', '#2563eb', '#059669', '#d97706', '#dc2626', '#0284c7']
-
-const DONUT_COLORS = ['#6366f1', '#10b981', '#9ca3af']
-const BAR_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
-
-function getBudgetStatus(utilization) {
-  if (utilization >= 100) return { label: 'Over Budget', cls: 'badge-over-budget' }
-  if (utilization >= 80) return { label: 'On Track', cls: 'badge-on-track' }
-  if (utilization === 0) return { label: 'Planned', cls: 'badge-planned' }
-  return { label: 'Under Budget', cls: 'badge-under-budget' }
+// Custom currency formatter for INR
+function formatINR(value) {
+  if (value == null) return '₹ 0';
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 export default function BudgetsPage() {
-  const [period, setPeriod] = useState('This Year')
+  const { isPM } = useRole()
+  const qc = useQueryClient()
+  const [view, setView] = useState('list') // 'list', 'add', 'edit', 'details'
+  const [selectedBudget, setSelectedBudget] = useState(null)
+  const [activeTab, setActiveTab] = useState('All Budgets')
+  const [summaryProjFilter, setSummaryProjFilter] = useState('All')
+  const [openMenuId, setOpenMenuId] = useState(null)
 
-  const { data: projects = [] } = useQuery({
+  useEffect(() => {
+    const handleClickOutside = () => setOpenMenuId(null);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, []);
+  
+  // Filters
+  const [search, setSearch] = useState('')
+  const [projFilter, setProjFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  
+  const [page, setPage] = useState(1)
+  const pageSize = 5
+
+  const { data: projects = [], isLoading: isProjLoading } = useQuery({
     queryKey: ['projects-list'],
     queryFn: () => projectApi.getAll().then(r => r.data?.data || r.data || []),
     staleTime: 60_000,
   })
 
-  // Fetch expenses for every project in parallel
   const expenseQueries = useQueries({
     queries: projects.map(p => ({
       queryKey: ['expenses-project', p.projectId],
@@ -56,239 +60,273 @@ export default function BudgetsPage() {
     })),
   })
 
-  const isLoading = expenseQueries.some(q => q.isLoading)
+  const isLoading = isProjLoading || expenseQueries.some(q => q.isLoading)
   const expenses = expenseQueries.flatMap(q => q.data || [])
 
-  // Compute budget breakdown per project
-  const budgetData = projects.map((p, idx) => {
-    const projExpenses = expenses.filter(e => String(e.projectId) === String(p.projectId))
-    const totalBudget = p.budget || 0
-    const totalExpense = projExpenses.reduce((s, e) => s + (e.amount || 0), 0)
-    const remaining = totalBudget - totalExpense
-    const utilization = totalBudget > 0 ? Math.round(totalExpense / totalBudget * 100) : 0
-    return {
-      projectId: p.projectId,
-      projectName: p.projectName,
-      managerName: p.managerName,
-      totalBudget,
-      totalExpense,
-      remaining,
-      utilization,
-      idx,
-    }
-  })
+  const budgetData = useMemo(() => {
+    return projects.map((p, idx) => {
+      const projExpenses = expenses.filter(e => String(e.projectId) === String(p.projectId))
+      const totalBudget = p.budget || 0
+      const totalExpense = projExpenses.reduce((s, e) => s + (e.amount || 0), 0)
+      const remaining = totalBudget - totalExpense
+      const utilization = totalBudget > 0 ? (totalExpense / totalBudget * 100).toFixed(1) : 0
+      
+      let status = 'On Track'
+      if (utilization >= 100) status = 'Over Budget'
+      else if (utilization >= 80) status = 'At Risk'
 
-  // Summary stats
-  const totalBudget = budgetData.reduce((s, p) => s + p.totalBudget, 0)
-  const totalExpenses = budgetData.reduce((s, p) => s + p.totalExpense, 0)
-  const remaining = totalBudget - totalExpenses
-  const activePrj = projects.filter(p => p.status === 'IN_PROGRESS').length
-  const overBudget = budgetData.filter(p => p.remaining < 0).length
+      return {
+        id: p.projectId,
+        budgetName: p.projectName + ' Budget',
+        projectName: p.projectName,
+        budgetType: idx % 2 === 0 ? 'Fixed' : 'Estimated',
+        totalBudget,
+        spent: totalExpense,
+        remaining,
+        utilization,
+        status,
+        createdAt: p.createdAt,
+        description: p.description || 'Budget for complete project development and testing.',
+        recentExpenses: projExpenses.slice(0, 3)
+      }
+    })
+  }, [projects, expenses])
 
-  const STAT_CARDS = [
-    { label: 'Total Budget', value: formatCurrency(totalBudget), sub: 'Across all projects', Icon: '💼', color: '#6366f1', bg: '#ede9fe' },
-    { label: 'Total Expenses', value: formatCurrency(totalExpenses), sub: 'Across all projects', Icon: '📈', color: '#10b981', bg: '#d1fae5' },
-    { label: 'Remaining Budget', value: formatCurrency(remaining), sub: `${totalBudget > 0 ? Math.round(remaining / totalBudget * 100) : 0}% of total budget`, Icon: '💰', color: '#3b82f6', bg: '#dbeafe' },
-    { label: 'Active Projects', value: activePrj, sub: 'With budgets', Icon: '📅', color: '#d97706', bg: '#fef3c7' },
-    { label: 'Over Budget Projects', value: overBudget, sub: 'Needs attention', Icon: '📊', color: '#dc2626', bg: '#fee2e2' },
-  ]
+  // Filtering
+  const filteredData = useMemo(() => {
+    return budgetData.filter(b => {
+      if (search && !b.budgetName.toLowerCase().includes(search.toLowerCase())) return false
+      if (projFilter && b.projectName !== projFilter) return false
+      if (statusFilter && b.status !== statusFilter) return false
+      if (typeFilter && b.budgetType !== typeFilter) return false
+      return true
+    })
+  }, [budgetData, search, projFilter, statusFilter, typeFilter])
 
-  // Pie chart data
-  const pieData = [
-    { name: 'Total Expenses', value: totalExpenses },
-    { name: 'Remaining Budget', value: Math.max(0, remaining) },
-    { name: 'Available', value: Math.max(0, totalBudget - totalExpenses - remaining) },
-  ].filter(d => d.value > 0)
+  const total = filteredData.length
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  const pagedData = filteredData.slice((page - 1) * pageSize, page * pageSize)
 
-  // Bar chart data — mock monthly data based on totals
-  const barData = BAR_MONTHS.map((m, i) => ({
-    month: m,
-    Budget: Math.round(totalBudget / 12 * (i < 7 ? 1 : 0.8)),
-    Expenses: Math.round(totalExpenses / 12 * (i < 7 ? 1 : 0.5)),
-  }))
+  const handleActionClick = (action, budget) => {
+    setSelectedBudget(budget)
+    setView(action)
+  }
+
+  const renderStatus = (status) => {
+    if (status === 'Over Budget') return <span style={{ color: '#dc2626', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, background: '#fee2e2', padding: '2px 8px', borderRadius: 12 }}><span style={{ fontSize: '10px' }}>●</span> Over Budget</span>
+    if (status === 'At Risk') return <span style={{ color: '#d97706', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, background: '#fef3c7', padding: '2px 8px', borderRadius: 12 }}><span style={{ fontSize: '10px' }}>●</span> At Risk</span>
+    return <span style={{ color: '#059669', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, background: '#d1fae5', padding: '2px 8px', borderRadius: 12 }}><span style={{ fontSize: '10px' }}>●</span> On Track</span>
+  }
+  
+  const renderTypeBadge = (type) => {
+    if (type === 'Fixed') return <span style={{ background: '#ede9fe', color: '#7c3aed', padding: '2px 8px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>Fixed</span>
+    return <span style={{ background: '#e0f2fe', color: '#0284c7', padding: '2px 8px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>Estimated</span>
+  }
 
   return (
-    <div>
-      {/* Header with breadcrumb */}
-      <div style={{ marginBottom: 20 }}>
-        <div className="breadcrumb" style={{ marginBottom: 8 }}>
-          <Home size={12} />
-          <ChevronRight size={12} />
-          <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>Budgets</span>
+    <div style={{ position: 'relative' }}>
+      <div className="page-header" style={{ marginBottom: 20 }}>
+        <div>
+          <h1 className="page-heading">Budget Management</h1>
+          <p className="page-subheading">Track and manage budgets for your projects.</p>
         </div>
-        <div className="page-header" style={{ marginBottom: 0 }}>
+        {isPM && (
+          <button className="btn btn-primary" onClick={() => { setSelectedBudget(null); setView('add') }}>
+            <Plus size={15} /> Add Budget
+          </button>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 24, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
+        <div onClick={() => setActiveTab('All Budgets')} style={{ paddingBottom: 10, color: activeTab === 'All Budgets' ? 'var(--purple)' : 'var(--text-secondary)', borderBottom: activeTab === 'All Budgets' ? '2px solid var(--purple)' : '2px solid transparent', fontWeight: activeTab === 'All Budgets' ? 600 : 500, fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s' }}>All Budgets</div>
+        <div onClick={() => setActiveTab('Budget Summary')} style={{ paddingBottom: 10, color: activeTab === 'Budget Summary' ? 'var(--purple)' : 'var(--text-secondary)', borderBottom: activeTab === 'Budget Summary' ? '2px solid var(--purple)' : '2px solid transparent', fontWeight: activeTab === 'Budget Summary' ? 600 : 500, fontSize: '0.95rem', cursor: 'pointer', transition: 'all 0.2s' }}>Budget Summary</div>
+      </div>
+
+      {activeTab === 'Budget Summary' && (() => {
+        const summaryData = summaryProjFilter === 'All' 
+          ? budgetData 
+          : budgetData.filter(b => String(b.id) === String(summaryProjFilter));
+        
+        return (
           <div>
-            <h1 className="page-heading">Budgets</h1>
-            <p className="page-subheading">Track project budgets, expenses and financial overview</p>
-          </div>
-          <div style={{ display: 'flex', gap: 10 }}>
-            <button className="btn btn-outline btn-sm"><Download size={14} /> Export Report</button>
-            <button className="btn btn-primary"><Plus size={15} /> Add Budget</button>
-          </div>
-        </div>
-      </div>
-
-      {/* 5 Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 14, marginBottom: 20 }}>
-        {STAT_CARDS.map((s, i) => (
-          <div key={s.label} className="stat-card">
-            <div style={{ width: 48, height: 48, borderRadius: 12, background: s.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.2rem' }}>
-              {s.Icon}
-            </div>
-            <div>
-              <div className="stat-value" style={{ fontSize: '1.1rem' }}>{s.value}</div>
-              <div className="stat-label">{s.label}</div>
-              <div style={{ fontSize: '0.72rem', color: s.label === 'Over Budget Projects' && overBudget > 0 ? '#dc2626' : 'var(--text-muted)', marginTop: 2 }}>{s.sub}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, marginBottom: 20 }}>
-        {/* Donut */}
-        <div className="card">
-          <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: 16 }}>Budget Overview</div>
-          <ResponsiveContainer width="100%" height={180}>
-            <PieChart>
-              <Pie data={pieData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={3}>
-                {pieData.map((_, i) => <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />)}
-              </Pie>
-              <Tooltip formatter={v => formatCurrency(v)} />
-            </PieChart>
-          </ResponsiveContainer>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
-            {[
-              { label: 'Total Expenses', pct: totalBudget ? Math.round(totalExpenses / totalBudget * 100) : 0, color: '#6366f1' },
-              { label: 'Remaining Budget', pct: totalBudget ? Math.round(Math.max(0, remaining) / totalBudget * 100) : 0, color: '#10b981' },
-              { label: 'Planned Budget', pct: 100, color: '#9ca3af' },
-            ].map(l => (
-              <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ width: 10, height: 10, borderRadius: '50%', background: l.color, flexShrink: 0 }} />
-                <span style={{ flex: 1, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{l.label}</span>
-                <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{l.pct}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Bar chart */}
-        <div className="card">
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>Budget vs Expenses (This Month)</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <select className="form-select" style={{ width: 130, padding: '4px 10px', fontSize: '0.8rem' }}
-                value={period} onChange={e => setPeriod(e.target.value)}>
-                <option>This Year</option>
-                <option>Last 6 Months</option>
-                <option>Last Quarter</option>
+            <div style={{ marginBottom: 20, width: 250 }}>
+              <label className="form-label" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Project Filter</label>
+              <select className="form-select" value={summaryProjFilter} onChange={(e) => setSummaryProjFilter(e.target.value)}>
+                <option value="All">All Projects</option>
+                {projects.map(p => <option key={p.projectId} value={p.projectId}>{p.projectName}</option>)}
               </select>
             </div>
-          </div>
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={barData} barSize={18} barCategoryGap="30%">
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}K`} />
-              <Tooltip formatter={v => formatCurrency(v)} />
-              <Legend iconSize={10} wrapperStyle={{ fontSize: 12 }} />
-              <Bar dataKey="Budget" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="Expenses" fill="#10b981" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Project Budget Details table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', fontWeight: 700, borderBottom: '1px solid var(--border)' }}>
-          Project Budget Details
-        </div>
-        {isLoading
-          ? <div className="page-loader"><div className="spinner" /></div>
-          : (
-            <div className="table-wrap">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Project Name</th>
-                    <th>Project Manager</th>
-                    <th>Total Budget</th>
-                    <th>Total Expenses</th>
-                    <th>Remaining Budget</th>
-                    <th>Utilization</th>
-                    <th>Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {budgetData.length === 0
-                    ? <tr><td colSpan={8} className="table-empty">No budget data yet</td></tr>
-                    : budgetData.map(p => {
-                      const status = getBudgetStatus(p.utilization)
-                      const icon = getProjectIcon(p.projectName, p.idx)
-                      const bg = ICON_COLORS[p.idx % ICON_COLORS.length]
-                      return (
-                        <tr key={p.projectId}>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                              <div style={{ width: 32, height: 32, borderRadius: 7, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>
-                                {icon}
-                              </div>
-                              <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{p.projectName}</span>
-                            </div>
-                          </td>
-                          <td>
-                            {p.managerName
-                              ? <div className="user-cell"><div className="avatar avatar-sm">{p.managerName[0]}</div><span style={{ fontSize: '0.82rem' }}>{p.managerName}</span></div>
-                              : <span className="td-muted">—</span>
-                            }
-                          </td>
-                          <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{formatCurrency(p.totalBudget)}</td>
-                          <td style={{ fontWeight: 600, fontSize: '0.875rem', color: p.totalExpense > p.totalBudget ? '#dc2626' : '#059669' }}>
-                            {formatCurrency(p.totalExpense)}
-                          </td>
-                          <td style={{ fontWeight: 600, fontSize: '0.875rem', color: p.remaining < 0 ? '#dc2626' : '#059669' }}>
-                            {formatCurrency(p.remaining)}
-                          </td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{ flex: 1, height: 6, borderRadius: 3, background: '#e5e7eb', overflow: 'hidden' }}>
-                                <div style={{
-                                  height: '100%', borderRadius: 3,
-                                  width: `${Math.min(p.utilization, 100)}%`,
-                                  background: p.utilization >= 100 ? '#ef4444' : p.utilization >= 80 ? '#6366f1' : '#10b981',
-                                  transition: 'width 0.4s',
-                                }} />
-                              </div>
-                              <span style={{ fontSize: '0.78rem', fontWeight: 600, minWidth: 32 }}>{p.utilization}%</span>
-                            </div>
-                          </td>
-                          <td><span className={`badge ${status.cls}`}>{status.label}</span></td>
-                          <td>
-                            <div className="actions-cell">
-                              <button className="action-btn view" title="View">👁</button>
-                              <button className="action-btn edit" title="Edit">✏️</button>
-                              <button className="action-btn delete" title="Delete">🗑</button>
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })
-                  }
-                </tbody>
-              </table>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+              <div className="card" style={{ padding: 24 }}>
+                 <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 8, fontWeight: 600 }}>Total Budget Allocated</div>
+                 <div style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--purple)' }}>{formatINR(summaryData.reduce((s, b) => s + b.totalBudget, 0))}</div>
+              </div>
+              <div className="card" style={{ padding: 24 }}>
+                 <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 8, fontWeight: 600 }}>Total Amount Spent</div>
+                 <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#059669' }}>{formatINR(summaryData.reduce((s, b) => s + b.spent, 0))}</div>
+              </div>
+              <div className="card" style={{ padding: 24 }}>
+                 <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: 8, fontWeight: 600 }}>Total Remaining</div>
+                 <div style={{ fontSize: '1.8rem', fontWeight: 700, color: '#2563eb' }}>{formatINR(summaryData.reduce((s, b) => s + b.remaining, 0))}</div>
+              </div>
             </div>
-          )}
-        <div className="pagination">
-          <span>Showing 1 to {budgetData.length} of {budgetData.length} projects</span>
-          <div className="pag-controls">
-            <button className="pag-btn" disabled>‹</button>
-            <button className="pag-btn active">1</button>
-            <button className="pag-btn" disabled>›</button>
           </div>
-        </div>
-      </div>
+        );
+      })()}
+
+      {activeTab !== 'Budget Summary' && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>Project</div>
+              <select className="form-select" value={projFilter} onChange={e => { setProjFilter(e.target.value); setPage(1) }}>
+                <option value="">All Projects</option>
+                {projects.map(p => <option key={p.projectId} value={p.projectName}>{p.projectName}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>Status</div>
+              <select className="form-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1) }}>
+                <option value="">All Status</option>
+                <option value="On Track">On Track</option>
+                <option value="Over Budget">Over Budget</option>
+                <option value="At Risk">At Risk</option>
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>Budget Type</div>
+              <select className="form-select" value={typeFilter} onChange={e => { setTypeFilter(e.target.value); setPage(1) }}>
+                <option value="">All Type</option>
+                <option value="Fixed">Fixed</option>
+                <option value="Estimated">Estimated</option>
+              </select>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 6 }}>Search</div>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  placeholder="Search by budget name..." 
+                  value={search}
+                  onChange={e => { setSearch(e.target.value); setPage(1) }}
+                  style={{ paddingRight: 32 }}
+                />
+                <Search size={16} color="var(--text-muted)" style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)' }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 0 }}>
+            {isLoading ? (
+              <div className="page-loader"><div className="spinner" /></div>
+            ) : (
+              <>
+                <div className="table-wrap" style={{ overflow: 'visible' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Budget Name</th>
+                        <th>Project</th>
+                        <th>Budget Type</th>
+                        <th>Total Budget</th>
+                        <th>Spent</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                        {isPM && <th>Actions</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagedData.length === 0 ? (
+                        <tr><td colSpan={isPM ? 8 : 7} className="table-empty">No budget data found</td></tr>
+                      ) : (
+                        pagedData.map(b => (
+                          <tr key={b.id}>
+                            <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{b.budgetName}</td>
+                            <td style={{ fontSize: '0.875rem' }}>{b.projectName}</td>
+                            <td>{renderTypeBadge(b.budgetType)}</td>
+                            <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{formatINR(b.totalBudget)}</td>
+                            <td style={{ fontWeight: 600, fontSize: '0.875rem' }}>{formatINR(b.spent)}</td>
+                            <td style={{ fontWeight: 600, fontSize: '0.875rem', color: b.remaining < 0 ? '#dc2626' : 'inherit' }}>
+                              {formatINR(b.remaining)}
+                            </td>
+                            <td>{renderStatus(b.status)}</td>
+                            {isPM && (
+                              <td>
+                                <div style={{ position: 'relative' }}>
+                                  <button 
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(openMenuId === b.id ? null : b.id);
+                                    }}
+                                  >
+                                    <MoreVertical size={16} color="var(--text-secondary)" />
+                                  </button>
+                                  {openMenuId === b.id && (
+                                    <div style={{ position: 'absolute', right: 0, top: 24, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 4px 6px rgba(0,0,0,0.1)', zIndex: 10, width: 140, overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+                                      <div style={{ padding: '8px 12px', fontSize: '0.85rem', cursor: 'pointer', borderBottom: '1px solid var(--border)' }} onClick={() => { setOpenMenuId(null); handleActionClick('details', b); }}>👁 View Details</div>
+                                      <div style={{ padding: '8px 12px', fontSize: '0.85rem', cursor: 'pointer', borderBottom: '1px solid var(--border)' }} onClick={() => { setOpenMenuId(null); handleActionClick('edit', b); }}>✏️ Edit Budget</div>
+                                      <div style={{ padding: '8px 12px', fontSize: '0.85rem', cursor: 'pointer', color: '#dc2626' }} onClick={() => { setOpenMenuId(null); handleActionClick('delete', b); }}>🗑 Delete Budget</div>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            )}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                
+                <div className="pagination">
+                  <span>Showing {total === 0 ? 0 : (page - 1) * pageSize + 1} to {Math.min(page * pageSize, total)} of {total} budgets</span>
+                  <div className="pag-controls">
+                    <button className="pag-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
+                    {Array.from({ length: pages }, (_, i) => i + 1).map(n => (
+                      <button key={n} className={`pag-btn${page === n ? ' active' : ''}`} onClick={() => setPage(n)} style={page === n ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : {}}>{n}</button>
+                    ))}
+                    <button className="pag-btn" disabled={page === pages} onClick={() => setPage(p => p + 1)}>›</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* MODALS */}
+      {(view === 'add' || view === 'edit') && (
+        <BudgetFormModal 
+          mode={view} 
+          budget={selectedBudget} 
+          projects={projects} 
+          onClose={() => setView('list')} 
+        />
+      )}
+
+      {view === 'details' && (
+        <BudgetDetailsModal 
+          budget={selectedBudget} 
+          isPM={isPM} 
+          onClose={() => setView('list')} 
+          onEdit={() => setView('edit')} 
+          onDelete={() => setView('delete')}
+          formatINR={formatINR} 
+        />
+      )}
+
+      {view === 'delete' && (
+        <DeleteBudgetModal 
+          budget={selectedBudget} 
+          onClose={() => setView('list')} 
+          onConfirm={() => {
+            // Mock delete operation
+            setView('list')
+          }}
+        />
+      )}
     </div>
   )
 }

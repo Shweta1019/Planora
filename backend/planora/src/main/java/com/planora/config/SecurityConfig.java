@@ -43,7 +43,10 @@ public class SecurityConfig {
             .exceptionHandling(ex -> ex.authenticationEntryPoint(authEntryPoint))
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**").permitAll()
+                // Public: login and register are open to unauthenticated callers
+                // Role enforcement for ADMIN creation is handled in AuthController itself
+                .requestMatchers("/auth/login", "/auth/register").permitAll()
+                // All other requests (including /auth/me, /auth/change-password, etc.) require a valid JWT
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
@@ -65,7 +68,7 @@ public class SecurityConfig {
         return config.getAuthenticationManager();
     }
 
-    // allow frontend (React on 5173) to call backend
+    // Allow frontend (React on 5173) to call backend
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();

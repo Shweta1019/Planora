@@ -8,5 +8,9 @@ public class PlanorApplication {
 
     public static void main(String[] args) {
         SpringApplication.run(PlanorApplication.class, args);
+        
+        System.out.println("-----------------------");
+        System.out.println("Application Running");
+        System.out.println("-----------------------");
     }
 }

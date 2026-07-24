@@ -46,6 +46,7 @@ public class Project {
     private ProjectPriority priority = ProjectPriority.MEDIUM;
 
     @Enumerated(EnumType.STRING)
+    @Column(length = 50)
     @Builder.Default
     private ProjectStatus status = ProjectStatus.PLANNING;
 
