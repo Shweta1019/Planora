@@ -13,6 +13,7 @@ public class ProjectSummaryResponseDto {
 
     private Long projectId;
     private String projectName;
+    private String description;
     private ProjectStatus status;
     private ProjectPriority priority;
     private String managerName;

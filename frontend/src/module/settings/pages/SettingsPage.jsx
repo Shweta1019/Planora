@@ -20,6 +20,7 @@ export default function SettingsPage() {
   const { user: authUser } = useAuthStore()
   const [tab, setTab] = useState('profile')
   const [saved, setSaved] = useState('')
+  const [profileErr, setProfileErr] = useState('')
   const [pwErr, setPwErr] = useState('')
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
@@ -50,7 +51,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (me.firstName || me.email) {
       setForm({
-        firstName: me.firstName || '',
+        firstName: me.fullName || `${me.firstName || ''} ${me.lastName || ''}`.trim() || '',
         lastName: me.lastName || '',
         email: me.email || '',
         phone: me.phoneNo || me.phone || '',
@@ -68,9 +69,16 @@ export default function SettingsPage() {
 
   const profileMut = useMutation({
     mutationFn: (data) => authApi.updateProfile(data),
-    onSuccess: () => {
+    onSuccess: (res) => {
       setSaved('Profile saved successfully!')
       qc.invalidateQueries({ queryKey: ['my-profile'] })
+      
+      // Update global auth store so UI components like Navbar re-render immediately
+      const updatedUser = res.data?.data || res.data
+      if (updatedUser) {
+        useAuthStore.getState().setUser({ ...authUser, ...updatedUser })
+      }
+      
       setTimeout(() => setSaved(''), 3000)
     },
   })
@@ -96,13 +104,24 @@ export default function SettingsPage() {
       const dataUrl = event.target.result
       setPhotoUrl(dataUrl)
       localStorage.setItem('planora_photo', dataUrl)
+      window.dispatchEvent(new Event('planora_photo_updated'))
     }
     reader.readAsDataURL(file)
   }
 
   function submitProfile(e) {
     e.preventDefault()
-    profileMut.mutate(form)
+    if (!form.firstName.trim()) { setProfileErr('Full Name is required'); return }
+    if (form.phone && !/^\+?[\d\s-]{9,}$/.test(form.phone)) { setProfileErr('Invalid Phone Number'); return }
+    setProfileErr('')
+    
+    // Split full name into first and last name
+    const nameParts = form.firstName.trim().split(' ')
+    const fName = nameParts[0]
+    const lName = nameParts.slice(1).join(' ')
+    
+    const payload = { ...form, firstName: fName, lastName: lName }
+    profileMut.mutate(payload)
   }
 
   function submitPassword(e) {
@@ -225,19 +244,20 @@ export default function SettingsPage() {
                         {initials(fullName)}
                       </div>
                     }
-                    <label style={{
+                    <label htmlFor="photo-upload" style={{
                       position: 'absolute', bottom: 0, right: 0,
                       width: 28, height: 28, borderRadius: '50%', background: 'var(--purple)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       cursor: 'pointer', border: '2px solid #fff',
                     }}>
                       <Camera size={13} color="#fff" />
-                      <input type="file" style={{ display: 'none' }} accept="image/*" onChange={handlePhotoChange} />
+                      <input id="photo-upload" type="file" style={{ display: 'none' }} accept="image/*" onChange={handlePhotoChange} />
                     </label>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', textAlign: 'center' }}>{fullName}</div>
                   <button
                     type="button"
+                    onClick={() => document.getElementById('photo-upload')?.click()}
                     style={{
                       fontSize: '0.75rem', color: 'var(--purple)', fontWeight: 500,
                       background: 'none', border: 'none', cursor: 'pointer', padding: 0,
@@ -249,6 +269,7 @@ export default function SettingsPage() {
 
                 {/* Form fields */}
                 <form onSubmit={submitProfile} style={{ flex: 1, minWidth: 0 }}>
+                  {profileErr && <div style={{ color: 'var(--red)', background: 'var(--red-dim)', borderRadius: 6, padding: '8px 12px', marginBottom: 16, fontSize: '0.85rem' }}>{profileErr}</div>}
                   {/* Row 1: Full Name, Email, Phone Number */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
                     <div className="form-group" style={{ marginBottom: 0 }}>
@@ -318,7 +339,7 @@ export default function SettingsPage() {
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <button type="submit" className="btn btn-primary" disabled={profileMut.isPending}>
-                      🖫 {profileMut.isPending ? 'Saving…' : 'Save Changes'}
+                      {profileMut.isPending ? 'Saving…' : 'Save Changes'}
                     </button>
                   </div>
                 </form>
@@ -340,12 +361,11 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              <form onSubmit={submitPassword}>
+              <form onSubmit={submitPassword} style={{ maxWidth: 600 }}>
                 {/* Current Password */}
                 <div className="form-group" style={{ marginBottom: 20 }}>
                   <label className="form-label">Current Password</label>
                   <div style={{ position: 'relative' }}>
-                    <Lock size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                     <input
                       name="currentPassword"
                       type={showCurrent ? 'text' : 'password'}
@@ -353,7 +373,7 @@ export default function SettingsPage() {
                       onChange={changePw}
                       className="form-input"
                       placeholder="Enter your current password"
-                      style={{ paddingLeft: 36, paddingRight: 40 }}
+                      style={{ paddingRight: 40 }}
                     />
                     <button
                       type="button"
@@ -369,7 +389,6 @@ export default function SettingsPage() {
                 <div className="form-group" style={{ marginBottom: 6 }}>
                   <label className="form-label">New Password</label>
                   <div style={{ position: 'relative' }}>
-                    <Lock size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                     <input
                       name="newPassword"
                       type={showNew ? 'text' : 'password'}
@@ -377,7 +396,7 @@ export default function SettingsPage() {
                       onChange={changePw}
                       className="form-input"
                       placeholder="Enter your new password"
-                      style={{ paddingLeft: 36, paddingRight: 40 }}
+                      style={{ paddingRight: 40 }}
                     />
                     <button
                       type="button"
@@ -396,7 +415,6 @@ export default function SettingsPage() {
                 <div className="form-group" style={{ marginBottom: 28 }}>
                   <label className="form-label">Confirm New Password</label>
                   <div style={{ position: 'relative' }}>
-                    <Lock size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
                     <input
                       name="confirmPassword"
                       type={showConfirm ? 'text' : 'password'}
@@ -404,7 +422,7 @@ export default function SettingsPage() {
                       onChange={changePw}
                       className="form-input"
                       placeholder="Confirm your new password"
-                      style={{ paddingLeft: 36, paddingRight: 40 }}
+                      style={{ paddingRight: 40 }}
                     />
                     <button
                       type="button"
@@ -421,7 +439,7 @@ export default function SettingsPage() {
                     Cancel
                   </button>
                   <button type="submit" className="btn btn-primary" disabled={pwMut.isPending}>
-                    🔒 {pwMut.isPending ? 'Updating…' : 'Update Password'}
+                    {pwMut.isPending ? 'Updating…' : 'Update Password'}
                   </button>
                 </div>
               </form>
@@ -454,7 +472,7 @@ export default function SettingsPage() {
                 )
               })}
               <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-                <button className="btn btn-primary" onClick={saveNotifPrefs}>🖫 Save Changes</button>
+                <button className="btn btn-primary" onClick={saveNotifPrefs}>Save Changes</button>
               </div>
             </div>
           )}

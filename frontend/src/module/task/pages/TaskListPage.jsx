@@ -6,11 +6,13 @@ import { taskApi }    from '../../../api/taskApi'
 import { projectApi } from '../../../api/projectApi'
 import { userApi }    from '../../../api/userApi'
 import { expenseApi } from '../../../api/expenseApi'
-import { Plus, RotateCcw, Eye, MoreHorizontal, Pencil, Trash2, Calendar, Wallet } from 'lucide-react'
+import { Plus, RotateCcw, Eye, MoreHorizontal, MoreVertical, Pencil, Trash2, Calendar, Wallet } from 'lucide-react'
 import {
   formatDate, statusBadgeClass, statusLabel, priorityBadgeClass, progressColor
 } from '../../../utils/formatDate'
 import TaskFormModal from '../components/TaskForm'
+import TaskDetailsModal from '../components/TaskDetailsModal'
+import TaskDeleteModal from '../components/TaskDeleteModal'
 
 /* ── helper ─────────────────────────────────────────────────── */
 function Initials({ name }) {
@@ -42,6 +44,9 @@ export default function TaskListPage() {
   // ── Modal ──────────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false)
   const [editing,  setEditing]  = useState(null)
+  const [viewing,  setViewing]  = useState(null)
+  const [deleting, setDeleting] = useState(null)
+  const [openMenu, setOpenMenu] = useState(null)
 
   // ── Data ──────────────────────────────────────────────────
   const { data: projects = [] } = useQuery({
@@ -112,6 +117,7 @@ export default function TaskListPage() {
     onSuccess:  () => {
       qc.invalidateQueries({ queryKey: ['tasks-user'] })
       qc.invalidateQueries({ queryKey: ['tasks-project'] })
+      setDeleting(null)
     },
   })
 
@@ -214,30 +220,44 @@ export default function TaskListPage() {
           </td>
           {/* Actions */}
           <td>
-            <div className="actions-cell">
-              <button className="action-btn view" title="View"><Eye size={14} /></button>
-              {isPM && (
+            {isPM ? (
+              <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
                 <button
-                  className="action-btn edit"
-                  title="Edit"
-                  onClick={() => { setEditing(t); setShowForm(true) }}
+                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-secondary)' }}
+                  onClick={(e) => { e.stopPropagation(); setOpenMenu(openMenu === t.taskId ? null : t.taskId) }}
                 >
-                  <Pencil size={14} />
+                  <MoreVertical size={16} />
                 </button>
-              )}
-              {isPM && (
-                <button
-                  className="action-btn delete"
-                  title="Delete"
-                  onClick={() => { if (window.confirm(`Delete task "${t.title}"?`)) deleteMut.mutate(t.taskId) }}
-                >
-                  <Trash2 size={14} />
-                </button>
-              )}
-              {isEmployee && (
+
+                {openMenu === t.taskId && (
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: 'absolute', right: 24, top: 0, zIndex: 50,
+                      background: '#fff', borderRadius: 8,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                      border: '1px solid #f0f0f0',
+                      minWidth: 120, overflow: 'hidden',
+                    }}
+                  >
+                    <button onClick={() => { setViewing(t); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                      View Details
+                    </button>
+                    <button onClick={() => { setEditing(t); setShowForm(true); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                      Edit
+                    </button>
+                    <button onClick={() => { setDeleting(t); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc2626' }}>
+                      Delete
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="actions-cell">
+                <button className="action-btn view" title="View" onClick={() => setViewing(t)}><Eye size={14} /></button>
                 <button className="action-btn view" title="More"><MoreHorizontal size={14} /></button>
-              )}
-            </div>
+              </div>
+            )}
           </td>
         </tr>
       )
@@ -366,7 +386,7 @@ export default function TaskListPage() {
             <select className="form-select" style={{ width: 150 }} value={statF}
               onChange={e => { setStatF(e.target.value); setPage(1) }}>
               <option value="">All Status</option>
-              {['TO_DO','IN_PROGRESS','IN_REVIEW','COMPLETED','NOT_STARTED','OVERDUE'].map(s => (
+              {['TODO','IN_PROGRESS','IN_REVIEW','COMPLETED','NOT_STARTED','OVERDUE'].map(s => (
                 <option key={s} value={s}>{statusLabel(s)}</option>
               ))}
             </select>
@@ -379,7 +399,7 @@ export default function TaskListPage() {
               ))}
             </select>
 
-            <button className="btn btn-ghost btn-sm" onClick={resetFilters}>
+            <button className="btn btn-outline btn-sm" style={{ color: '#7c3aed', borderColor: '#7c3aed' }} onClick={resetFilters}>
               <RotateCcw size={13} /> Clear Filters
             </button>
           </div>
@@ -422,64 +442,70 @@ export default function TaskListPage() {
      PROJECT MANAGER LAYOUT
      ═══════════════════════════════════════════════════════════ */
   return (
-    <div>
+    <div onClick={() => setOpenMenu(null)}>
       {/* Header */}
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 className="page-heading">Tasks</h1>
-          <p className="page-subheading">View and manage tasks of your projects.</p>
         </div>
         <button className="btn btn-primary" onClick={() => { setEditing(null); setShowForm(true) }}>
           <Plus size={16} /> Add Task
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <SummaryCards />
+      {/* Filters */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 400 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 6 }}>Project</div>
+            <select className="form-select" style={{ height: 38 }} value={projF} onChange={e => { setProjF(e.target.value); setPage(1) }}>
+              <option value="">All Projects</option>
+              {projects.map(p => (
+                <option key={p.projectId} value={p.projectId}>{p.projectName}</option>
+              ))}
+            </select>
+          </div>
 
-      {/* Filters — Projects + Assignees + Status + Priority + Clear */}
-      <div className="card" style={{ marginBottom: 16, padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <select className="form-select" style={{ width: 170 }} value={projF}
-            onChange={e => { setProjF(e.target.value); setPage(1) }}>
-            <option value="">All My Projects</option>
-            {projects.map(p => (
-              <option key={p.projectId} value={p.projectId}>{p.projectName}</option>
-            ))}
-          </select>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 6 }}>Assignee</div>
+            <select className="form-select" style={{ height: 38 }} value={assignF} onChange={e => { setAssignF(e.target.value); setPage(1) }}>
+              <option value="">All Assignees</option>
+              {users.map(u => (
+                <option key={u.userId} value={u.userId}>{u.fullName || `${u.firstName} ${u.lastName}`}</option>
+              ))}
+            </select>
+          </div>
 
-          <select className="form-select" style={{ width: 160 }} value={assignF}
-            onChange={e => { setAssignF(e.target.value); setPage(1) }}>
-            <option value="">All Assignees</option>
-            {users.map(u => (
-              <option key={u.userId} value={u.userId}>{u.fullName}</option>
-            ))}
-          </select>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 6 }}>Status</div>
+            <select className="form-select" style={{ height: 38 }} value={statF} onChange={e => { setStatF(e.target.value); setPage(1) }}>
+              <option value="">All Status</option>
+              {['TODO','IN_PROGRESS','IN_REVIEW','COMPLETED','NOT_STARTED','OVERDUE'].map(s => (
+                <option key={s} value={s}>{statusLabel(s)}</option>
+              ))}
+            </select>
+          </div>
 
-          <select className="form-select" style={{ width: 150 }} value={statF}
-            onChange={e => { setStatF(e.target.value); setPage(1) }}>
-            <option value="">All Status</option>
-            {['TO_DO','IN_PROGRESS','IN_REVIEW','COMPLETED','NOT_STARTED','OVERDUE'].map(s => (
-              <option key={s} value={s}>{statusLabel(s)}</option>
-            ))}
-          </select>
-
-          <select className="form-select" style={{ width: 150 }} value={prioF}
-            onChange={e => { setPrioF(e.target.value); setPage(1) }}>
-            <option value="">All Priority</option>
-            {['LOW','MEDIUM','HIGH','CRITICAL'].map(p => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-
-          <button className="btn btn-ghost btn-sm" onClick={resetFilters}>
-            <RotateCcw size={13} /> Clear Filters
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 6 }}>Priority</div>
+            <select className="form-select" style={{ height: 38 }} value={prioF} onChange={e => { setPrioF(e.target.value); setPage(1) }}>
+              <option value="">All Priority</option>
+              {['LOW','MEDIUM','HIGH','CRITICAL'].map(p => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+          <button className="btn" style={{ height: 38, whiteSpace: 'nowrap', color: '#5b21b6', background: '#f5f3ff', border: '1px solid #c4b5fd', borderRadius: 6, padding: '0 16px', display: 'flex', alignItems: 'center' }} onClick={resetFilters}>
+            <RotateCcw size={14} style={{ marginRight: 6 }} /> Clear Filter
           </button>
         </div>
       </div>
 
       {/* Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 24 }}>
         {isLoading
           ? <div className="page-loader"><div className="spinner" /></div>
           : (
@@ -522,7 +548,8 @@ export default function TaskListPage() {
         }
       </div>
 
-      {/* Footer */}
+      {/* Footer / Summary moved here */}
+      <SummaryCards />
       <UpcomingDeadlines />
 
       {/* Add/Edit Task Modal */}
@@ -537,6 +564,19 @@ export default function TaskListPage() {
             qc.invalidateQueries({ queryKey: ['tasks-project'] })
             setShowForm(false); setEditing(null)
           }}
+        />
+      )}
+
+      {viewing && (
+        <TaskDetailsModal task={viewing} onClose={() => setViewing(null)} />
+      )}
+
+      {deleting && (
+        <TaskDeleteModal 
+          task={deleting} 
+          isPending={deleteMut.isPending} 
+          onConfirm={() => deleteMut.mutate(deleting.taskId)} 
+          onClose={() => setDeleting(null)} 
         />
       )}
     </div>

@@ -12,7 +12,7 @@ export default function TaskFormModal({ task, projects = [], users = [], isEmplo
     projectId:   task?.projectId   || '',
     assignedToId:task?.assignedToId|| '',
     priority:    task?.priority    || 'MEDIUM',
-    status:      task?.status      || 'TO_DO',
+    status:      task?.status      || 'TODO',
     dueDate:     task?.dueDate?.slice(0, 10) || '',
     completionPercentage: task?.completionPercentage || 0,
   })
@@ -20,7 +20,22 @@ export default function TaskFormModal({ task, projects = [], users = [], isEmplo
   const [errors, setErrors] = useState({})
 
   const mut = useMutation({
-    mutationFn: (data) => isEdit ? taskApi.update(task.taskId, data) : taskApi.create(data),
+    mutationFn: async (data) => {
+      let res;
+      if (isEdit) {
+        res = await taskApi.update(task.taskId, data);
+        if (data.status && data.status !== task.status) {
+          await taskApi.updateStatus(task.taskId, data.status);
+        }
+      } else {
+        res = await taskApi.create(data);
+        const newTaskId = res.data?.data?.taskId || res.data?.taskId;
+        if (newTaskId && data.status && data.status !== 'TODO') {
+          await taskApi.updateStatus(newTaskId, data.status);
+        }
+      }
+      return res;
+    },
     onSuccess: onSaved,
     onError: (err) => setErrors({ api: err.response?.data?.message || 'Error saving task' }),
   })
@@ -96,8 +111,8 @@ export default function TaskFormModal({ task, projects = [], users = [], isEmplo
               <div className="form-group">
                 <label className="form-label">Status</label>
                 <select name="status" value={form.status} onChange={change} className="form-select">
-                  {['TO_DO','IN_PROGRESS','IN_REVIEW','COMPLETED','OVERDUE'].map(s => (
-                    <option key={s} value={s}>{s.replace(/_/g,' ')}</option>
+                  {['TODO','IN_PROGRESS','IN_REVIEW','COMPLETED','OVERDUE'].map(s => (
+                    <option key={s} value={s}>{s === 'TODO' ? 'To Do' : s.replace(/_/g,' ')}</option>
                   ))}
                 </select>
               </div>

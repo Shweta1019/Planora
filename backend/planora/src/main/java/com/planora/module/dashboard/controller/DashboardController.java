@@ -18,7 +18,7 @@ public class DashboardController {
     private final DashboardService dashboardService;
 
     @GetMapping("/stats")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'EMPLOYEE')")
     public ResponseEntity<ApiResponse<DashboardStatsResponseDto>> getStats() {
         return ResponseEntity.ok(ApiResponse.success("Stats fetched", dashboardService.getStats()));
     }

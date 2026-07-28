@@ -3,5 +3,8 @@ package com.planora.common.enums;
 public enum TaskStatus {
     TODO,
     IN_PROGRESS,
-    COMPLETED
+    IN_REVIEW,
+    COMPLETED,
+    NOT_STARTED,
+    OVERDUE
 }

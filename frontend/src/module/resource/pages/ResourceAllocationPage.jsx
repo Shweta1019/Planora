@@ -7,7 +7,7 @@ import { useRole }     from '../../../store/useRole'
 import {
   Plus, Search, Eye, Pencil, MoreVertical, Trash2, X,
   ShieldOff, Users,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, RotateCcw
 } from 'lucide-react'
 import { initials } from '../../../utils/formatDate'
 
@@ -40,6 +40,19 @@ function getSkills(u) {
   return ROLE_SKILLS[u.role] || ROLE_SKILLS.EMPLOYEE
 }
 
+// ── Role badge ─────────────────────────────────────────────────────────────────
+function getRoleBadge(roleStr) {
+  const r = (roleStr || '').toUpperCase()
+  if (r.includes('DEV') || r.includes('FRONTEND') || r.includes('BACKEND')) return { bg: '#ede9fe', color: '#7c3aed' }
+  if (r.includes('DESIGN') || r.includes('UI/UX')) return { bg: '#e0f2fe', color: '#0284c7' }
+  if (r.includes('TEST') || r.includes('QA')) return { bg: '#d1fae5', color: '#059669' }
+  if (r.includes('ANALYST') || r.includes('BUSINESS')) return { bg: '#fef3c7', color: '#d97706' }
+  if (r.includes('DEVOPS')) return { bg: '#fce7f3', color: '#be185d' }
+  if (r.includes('MANAGER')) return { bg: '#ffedd5', color: '#c2410c' }
+  if (r.includes('ADMIN')) return { bg: '#fee2e2', color: '#dc2626' }
+  return { bg: '#ede9fe', color: '#7c3aed' } // default
+}
+
 // ── Availability badge ───────────────────────────────────────────────────────
 function availBadge(avail) {
   if (avail === 'FULLY_ALLOCATED')    return { bg: '#fee2e2', color: '#dc2626', dot: '#dc2626', label: 'Unavailable' }
@@ -48,7 +61,7 @@ function availBadge(avail) {
 }
 
 // ── View Details Modal ───────────────────────────────────────────────────────
-function ViewDetailsModal({ user, alloc, onClose }) {
+function ViewDetailsModal({ user, alloc, isPM, onEdit, onAllocate, onDelete, onClose }) {
   const { pct, projectNames, avail } = alloc
   const badge = availBadge(avail)
   const skills = getSkills(user)
@@ -68,7 +81,7 @@ function ViewDetailsModal({ user, alloc, onClose }) {
             <div>
               <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{name}</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 }}>{user.email}</div>
-              <span style={{ background: '#ede9fe', color: '#7c3aed', borderRadius: 20, padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
+              <span style={{ background: '#ede9fe', color: '#7c3aed', borderRadius: 4, padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
                 {user.designation || user.role?.replace('_', ' ')}
               </span>
             </div>
@@ -91,7 +104,16 @@ function ViewDetailsModal({ user, alloc, onClose }) {
             ))}
           </div>
         </div>
-        <div className="modal-footer">
+        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            {isPM && (
+              <>
+                <button className="btn btn-outline" style={{ color: '#2563eb', borderColor: '#bfdbfe', padding: '6px 14px', fontSize: '0.85rem' }} onClick={() => { onClose(); onEdit(); }}>Edit</button>
+                <button className="btn btn-outline" style={{ color: '#059669', borderColor: '#a7f3d0', padding: '6px 14px', fontSize: '0.85rem' }} onClick={() => { onClose(); onAllocate(); }}>Manage Allocation</button>
+                <button className="btn btn-outline" style={{ color: '#dc2626', borderColor: '#fecaca', padding: '6px 14px', fontSize: '0.85rem' }} onClick={() => { onClose(); onDelete(); }}>Delete</button>
+              </>
+            )}
+          </div>
           <button className="btn btn-outline" onClick={onClose}>Close</button>
         </div>
       </div>
@@ -517,11 +539,21 @@ export default function ResourceAllocationPage() {
 
   // State
   const [search, setSearch]   = useState('')
+  const [searchVal, setSearchVal] = useState('')
   const [projectF, setProjectF] = useState('')
   const [roleF, setRoleF]     = useState('')
   const [availF, setAvailF]   = useState('')
   const [page, setPage]       = useState(1)
   const pageSize = 5
+
+  const resetFilters = () => {
+    setSearch('')
+    setSearchVal('')
+    setProjectF('')
+    setRoleF('')
+    setAvailF('')
+    setPage(1)
+  }
 
   // Modal state
   const [showAllocate, setShowAllocate]   = useState(false)
@@ -617,7 +649,6 @@ export default function ResourceAllocationPage() {
       <div className="page-header">
         <div>
           <h1 className="page-heading">Resource Management</h1>
-          <p className="page-subheading">View and allocate resources for your projects.</p>
         </div>
         {isPM && (
           <button className="btn btn-primary" onClick={() => setShowAllocate(true)}>
@@ -630,11 +661,11 @@ export default function ResourceAllocationPage() {
 
       {/* ── Filters ── */}
       <div className="card" style={{ marginBottom: 14, padding: '12px 16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
           {/* Project filter */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Project</span>
-            <select className="form-select" style={{ minWidth: 140 }} value={projectF} onChange={e => { setProjectF(e.target.value); setPage(1) }}>
+            <select className="form-select" style={{ minWidth: 140, height: 38 }} value={projectF} onChange={e => { setProjectF(e.target.value); setPage(1) }}>
               <option value="">All Projects</option>
               {projects.map(p => <option key={p.projectId} value={String(p.projectId)}>{p.projectName}</option>)}
             </select>
@@ -643,7 +674,7 @@ export default function ResourceAllocationPage() {
           {/* Role filter */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</span>
-            <select className="form-select" style={{ minWidth: 130 }} value={roleF} onChange={e => { setRoleF(e.target.value); setPage(1) }}>
+            <select className="form-select" style={{ minWidth: 130, height: 38 }} value={roleF} onChange={e => { setRoleF(e.target.value); setPage(1) }}>
               <option value="">All Roles</option>
               <option value="EMPLOYEE">Employee</option>
               <option value="PROJECT_MANAGER">Project Manager</option>
@@ -654,7 +685,7 @@ export default function ResourceAllocationPage() {
           {/* Availability filter */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Availability</span>
-            <select className="form-select" style={{ minWidth: 130 }} value={availF} onChange={e => { setAvailF(e.target.value); setPage(1) }}>
+            <select className="form-select" style={{ minWidth: 130, height: 38 }} value={availF} onChange={e => { setAvailF(e.target.value); setPage(1) }}>
               <option value="">All</option>
               <option value="FULLY_ALLOCATED">Unavailable</option>
               <option value="PARTIALLY_AVAILABLE">Partially Available</option>
@@ -663,7 +694,7 @@ export default function ResourceAllocationPage() {
           </div>
 
           {/* Search */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 180 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 280 }}>
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Search</span>
             <div className="search-box">
               <Search size={14} className="search-icon"/>
@@ -671,12 +702,27 @@ export default function ResourceAllocationPage() {
                 type="text"
                 placeholder="Search by name or skills..."
                 className="form-input"
-                style={{ paddingLeft: 34 }}
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(1) }}
+                style={{ paddingLeft: 34, height: 38 }}
+                value={searchVal}
+                onChange={e => setSearchVal(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    setSearch(searchVal);
+                    setPage(1);
+                  }
+                }}
               />
             </div>
           </div>
+          
+          {/* Clear Filters Button */}
+          <button 
+            className="btn btn-outline" 
+            style={{ height: 38, whiteSpace: 'nowrap', color: '#7c3aed', borderColor: '#7c3aed' }} 
+            onClick={resetFilters}
+          >
+            <RotateCcw size={13} style={{ marginRight: 6 }} /> Clear Filters
+          </button>
         </div>
       </div>
 
@@ -695,7 +741,8 @@ export default function ResourceAllocationPage() {
                     <th>Skills</th>
                     <th>Project</th>
                     <th>Availability</th>
-                    <th style={{ textAlign: 'right', paddingRight: 20 }}>Actions</th>
+                    <th>Utilization</th>
+                    <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -722,8 +769,9 @@ export default function ResourceAllocationPage() {
                             {/* Role */}
                             <td>
                               <span style={{
-                                background: '#ede9fe', color: '#7c3aed',
-                                borderRadius: 20, padding: '3px 10px',
+                                background: getRoleBadge(u.designation || u.role).bg,
+                                color: getRoleBadge(u.designation || u.role).color,
+                                borderRadius: 4, padding: '3px 10px',
                                 fontSize: '0.72rem', fontWeight: 600,
                               }}>
                                 {u.designation || u.role?.replace('_', ' ')}
@@ -745,26 +793,31 @@ export default function ResourceAllocationPage() {
                               <span style={{
                                 display: 'inline-flex', alignItems: 'center', gap: 6,
                                 background: badge.bg, color: badge.color,
-                                borderRadius: 20, padding: '3px 10px',
+                                borderRadius: 4, padding: '3px 10px',
                                 fontSize: '0.75rem', fontWeight: 600,
                               }}>
-                                <span style={{ width: 6, height: 6, borderRadius: '50%', background: badge.dot, flexShrink: 0 }}/>
                                 {badge.label}
                               </span>
                             </td>
 
-                            {/* Actions — 3-dot popover */}
-                            <td style={{ textAlign: 'right', paddingRight: 12 }}>
-                              <ActionPopover
-                                user={u}
-                                resource={alloc.resource}
-                                isPM={isPM}
-                                isAdmin={isAdmin}
-                                onView={() => setViewUser({ user: u, alloc })}
-                                onEdit={() => setEditUser(u)}
-                                onAllocate={() => setAllocUser({ user: u, resource: alloc.resource })}
-                                onDelete={() => setDeleteUser({ user: u, resource: alloc.resource })}
-                              />
+                            {/* Utilization */}
+                            <td>
+                              <div style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: 4, color: 'var(--text-primary)' }}>{alloc.pct}%</div>
+                              <div style={{ height: 6, width: 80, background: '#e0e7ff', borderRadius: 3, overflow: 'hidden' }}>
+                                <div style={{ height: '100%', width: `${alloc.pct}%`, background: '#4f46e5', borderRadius: 3, transition: 'width 0.3s ease' }} />
+                              </div>
+                            </td>
+
+                            {/* Actions — Eye Button */}
+                            <td style={{ textAlign: 'center' }}>
+                              <button
+                                className="btn btn-ghost btn-icon"
+                                style={{ width: 32, height: 32, borderRadius: 8, color: '#6366f1' }}
+                                onClick={() => setViewUser({ user: u, alloc })}
+                                title="View Details"
+                              >
+                                <Eye size={16}/>
+                              </button>
                             </td>
                           </tr>
                         )
@@ -819,6 +872,10 @@ export default function ResourceAllocationPage() {
         <ViewDetailsModal
           user={viewUser.user}
           alloc={viewUser.alloc}
+          isPM={isPM}
+          onEdit={() => { setViewUser(null); setEditUser(viewUser.user) }}
+          onAllocate={() => { setViewUser(null); setAllocUser({ user: viewUser.user, resource: viewUser.alloc.resource }) }}
+          onDelete={() => { setViewUser(null); setDeleteUser({ user: viewUser.user, resource: viewUser.alloc.resource }) }}
           onClose={() => setViewUser(null)}
         />
       )}

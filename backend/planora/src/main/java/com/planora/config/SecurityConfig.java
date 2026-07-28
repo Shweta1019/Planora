@@ -45,7 +45,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public: login and register are open to unauthenticated callers
                 // Role enforcement for ADMIN creation is handled in AuthController itself
-                .requestMatchers("/auth/login", "/auth/register").permitAll()
+                .requestMatchers("/auth/login", "/auth/register", "/auth/forgot-password").permitAll()
                 // All other requests (including /auth/me, /auth/change-password, etc.) require a valid JWT
                 .anyRequest().authenticated()
             )

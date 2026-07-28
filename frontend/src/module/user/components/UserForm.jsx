@@ -71,7 +71,7 @@ export default function UserFormModal({ user, onClose, onSaved }) {
             </div>
             <div className="form-group">
               <label className="form-label">Email *</label>
-              <input name="email" type="email" value={form.email} onChange={change} className="form-input" placeholder="email@planora.com" disabled={isEdit} style={isEdit ? { opacity: 0.6 } : {}} />
+              <input name="email" type="email" value={form.email} onChange={change} className="form-input" placeholder="email@planora.com" />
               {errors.email && <span className="form-error">{errors.email}</span>}
             </div>
             {!isEdit && (
@@ -98,11 +98,30 @@ export default function UserFormModal({ user, onClose, onSaved }) {
             <div className="grid-2">
               <div className="form-group">
                 <label className="form-label">Department</label>
-                <input name="department" value={form.department} onChange={change} className="form-input" placeholder="e.g. Engineering" />
+                <select name="department" value={form.department} onChange={change} className="form-select">
+                  <option value="">Select Department</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Design">Design</option>
+                  <option value="Product">Product</option>
+                  <option value="Operations">Operations</option>
+                  <option value="HR">HR</option>
+                  <option value="Sales">Sales</option>
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Designation</label>
-                <input name="designation" value={form.designation} onChange={change} className="form-input" placeholder="e.g. Senior Developer" />
+                <select name="designation" value={form.designation} onChange={change} className="form-select">
+                  <option value="">Select Designation</option>
+                  <option value="Frontend Developer">Frontend Developer</option>
+                  <option value="Backend Developer">Backend Developer</option>
+                  <option value="Full Stack Developer">Full Stack Developer</option>
+                  <option value="UI/UX Designer">UI/UX Designer</option>
+                  <option value="QA Tester">QA Tester</option>
+                  <option value="Business Analyst">Business Analyst</option>
+                  <option value="DevOps Engineer">DevOps Engineer</option>
+                  <option value="Project Manager">Project Manager</option>
+                  <option value="Admin">Admin</option>
+                </select>
               </div>
             </div>
           </div>

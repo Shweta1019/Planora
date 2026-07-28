@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Navbar  from './Navbar'
@@ -14,8 +14,8 @@ export default function DashboardLayout() {
   const { data: unread } = useQuery({
     queryKey:  ['notif-unread', userId],
     queryFn:   () => notificationApi.getUnread(userId).then(r => r.data?.data || r.data || []),
-    refetchInterval: 60_000,
-    staleTime:       30_000,
+    refetchInterval: 3_000,
+    staleTime:       1_000,
     enabled: !!userId,
   })
 
@@ -30,11 +30,14 @@ export default function DashboardLayout() {
       />
       <div className={`main-area${collapsed ? ' collapsed' : ''}`}>
         <Navbar
+          collapsed={collapsed}
           onMenuToggle={() => setCollapsed(v => !v)}
           notifCount={notifCount}
         />
         <main className="page-content">
-          <Outlet />
+          <Suspense fallback={<div className="page-loader"><div className="spinner"/></div>}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

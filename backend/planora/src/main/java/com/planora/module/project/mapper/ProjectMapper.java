@@ -40,6 +40,7 @@ public class ProjectMapper {
         return ProjectSummaryResponseDto.builder()
                 .projectId(p.getProjectId())
                 .projectName(p.getProjectName())
+                .description(p.getDescription())
                 .status(p.getStatus())
                 .priority(p.getPriority())
                 .managerName(managerName)

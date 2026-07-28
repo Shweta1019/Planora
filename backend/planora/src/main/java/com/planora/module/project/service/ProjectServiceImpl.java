@@ -10,6 +10,7 @@ import com.planora.module.project.exception.ProjectNotFoundException;
 import com.planora.module.project.mapper.ProjectMapper;
 import com.planora.module.project.repository.ProjectMemberRepository;
 import com.planora.module.project.repository.ProjectRepository;
+import com.planora.module.notification.service.NotificationService;
 import com.planora.module.user.entity.User;
 import com.planora.module.user.exception.UserNotFoundException;
 import com.planora.module.user.repository.UserRepository;
@@ -30,6 +31,7 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectMemberRepository memberRepository;
     private final UserRepository userRepository;
     private final ProjectMapper projectMapper;
+    private final NotificationService notificationService;
 
     @Override
     public ProjectResponseDto createProject(ProjectCreateRequestDto dto) {
@@ -43,6 +45,7 @@ public class ProjectServiceImpl implements ProjectService {
                 .startDate(dto.getStartDate())
                 .endDate(dto.getEndDate())
                 .budget(dto.getBudget())
+                .status(dto.getStatus() != null ? dto.getStatus() : com.planora.common.enums.ProjectStatus.PLANNING)
                 .priority(dto.getPriority() != null ? dto.getPriority() : com.planora.common.enums.ProjectPriority.MEDIUM);
 
         // manager is optional
@@ -71,6 +74,18 @@ public class ProjectServiceImpl implements ProjectService {
 
         Project saved = projectRepository.save(project);
         int total = (int) memberRepository.countByProjectProjectId(projectId);
+        
+        // Notify all project members about the update
+        List<ProjectMember> members = memberRepository.findByProjectProjectId(projectId);
+        for (ProjectMember m : members) {
+            notificationService.send(
+                m.getUser().getUserId(),
+                "Project Updated",
+                "Project \"" + project.getProjectName() + "\" has been updated.",
+                "PROJECT_UPDATED"
+            );
+        }
+
         return projectMapper.toResponseDto(saved, total);
     }
 
@@ -125,6 +140,13 @@ public class ProjectServiceImpl implements ProjectService {
                 .allocationPercentage(dto.getAllocationPercentage() != null ? dto.getAllocationPercentage() : 100)
                 .assignedDate(LocalDate.now())
                 .build();
+
+        notificationService.send(
+            user.getUserId(),
+            "Assigned to Project",
+            "You have been assigned to the project \"" + project.getProjectName() + "\".",
+            "PROJECT_ASSIGNED"
+        );
 
         return projectMapper.toMemberDto(memberRepository.save(member));
     }

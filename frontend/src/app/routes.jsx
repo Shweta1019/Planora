@@ -8,6 +8,7 @@ import RoleGuard from '../protectedRoutes/RoleGuard'
 // Lazy load all pages
 const LoginPage = lazy(() => import('../module/auth/pages/LoginPage'))
 const SignupPage = lazy(() => import('../module/auth/pages/SignupPage'))
+const LandingPage = lazy(() => import('../module/landing/pages/LandingPage'))
 const ForgotPasswordPage = lazy(() => import('../module/auth/pages/ForgotPasswordPage'))
 const DashboardPage = lazy(() => import('../module/dashboard/pages/DashboardPage'))
 const ProjectListPage = lazy(() => import('../module/project/pages/ProjectListPage'))
@@ -38,6 +39,9 @@ export default function AppRoutes() {
     <Suspense fallback={<PageLoader />}>
       <Routes>
 
+        {/* ── Public Landing Page ── */}
+        <Route path="/" element={<LandingPage />} />
+
         {/* ── Public auth routes ── */}
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
@@ -52,7 +56,6 @@ export default function AppRoutes() {
           <Route element={<DashboardLayout />}>
 
             {/* All roles */}
-            <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/files" element={<FilesPage />} />
@@ -67,11 +70,11 @@ export default function AppRoutes() {
               <Route path="/resources" element={<ResourcePage />} />
               <Route path="/budgets" element={<BudgetsPage />} />
               <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/users" element={<UsersPage />} />
             </Route>
 
             {/* Admin only */}
             <Route element={<RoleGuard allowed={['ADMIN']} />}>
-              <Route path="/users" element={<UsersPage />} />
               <Route path="/activity" element={<ActivityPage />} />
             </Route>
 

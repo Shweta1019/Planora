@@ -41,27 +41,44 @@ public class AuthController {
     /* ── LOGIN ─────────────────────────────────────────────── */
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<JwtResponseDto>> login(@Valid @RequestBody LoginRequestDto dto) {
+        System.out.println("--- LOGIN ATTEMPT ---");
+        System.out.println("Email: " + dto.getEmail());
         
         // 1. Manual Validation for custom error messages ("Wrong user" / "Wrong password")
         Optional<User> userOpt = userRepository.findByEmail(dto.getEmail());
         if (userOpt.isEmpty()) {
+            System.out.println("Result: User not found in database.");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("Wrong user"));
         }
 
         User user = userOpt.get();
+        System.out.println("User found: " + user.getEmail() + " | Role: " + user.getRole());
+        
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
+            System.out.println("Result: Password mismatch for user " + user.getEmail());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("Wrong password"));
         }
+        System.out.println("Password matched successfully.");
 
         // 2. Standard Spring Security Authentication
-        authManager.authenticate(
-                new UsernamePasswordAuthenticationToken(dto.getEmail(), dto.getPassword())
-        );
+        try {
+            System.out.println("Attempting Spring Security Authentication...");
+            authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(dto.getEmail(), dto.getPassword())
+            );
+            System.out.println("Spring Security Authentication passed.");
+        } catch (Exception e) {
+            System.out.println("Spring Security Authentication failed: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(ApiResponse.error("Authentication failed: " + e.getMessage()));
+        }
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(dto.getEmail());
         String token = jwtUtil.generateToken(userDetails);
+        System.out.println("Token generated successfully.");
 
         return ResponseEntity.ok(ApiResponse.success("Login successful", buildResponse(token, user)));
     }
@@ -104,22 +121,29 @@ public class AuthController {
                 .body(ApiResponse.success("Registration successful", buildResponse(token, newUser)));
     }
 
-    /* ── FORGOT PASSWORD ──────────────────────────────────── */
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(@RequestBody Map<String, String> body) {
         String email = body.get("email");
+        String newPassword = body.get("newPassword");
         
         if (email == null || email.isBlank()) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Email is required"));
         }
         
-        if (!userRepository.existsByEmail(email)) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("Wrong user"));
+        if (newPassword == null || newPassword.length() < 6) {
+            return ResponseEntity.badRequest().body(ApiResponse.error("New password must be at least 6 characters"));
+        }
+        
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.error("User not found"));
         }
 
-        // TODO: In the future, write logic here to generate an OTP/Token and send it via Email
+        User user = userOpt.get();
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
         
-        return ResponseEntity.ok(ApiResponse.success("If an account exists, a password reset link has been sent to your email."));
+        return ResponseEntity.ok(ApiResponse.success("Password reset successfully"));
     }
 
     /* ── GET ME — returns current logged-in user profile ──── */

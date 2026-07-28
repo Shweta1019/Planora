@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query'
 import { projectApi } from '../../../api/projectApi'
 import { X } from 'lucide-react'
 
-const STATUSES = ['PLANNING','ACTIVE','IN_PROGRESS','ON_HOLD','COMPLETED','CANCELLED']
+const STATUSES = ['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED']
 
 export default function ProjectFormModal({ project, users = [], onClose, onSaved }) {
   const isEdit = !!project
@@ -47,7 +47,7 @@ export default function ProjectFormModal({ project, users = [], onClose, onSaved
   }
 
   function submit(e) {
-    e.preventDefault()
+    if (e) e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     mut.mutate({
@@ -56,51 +56,51 @@ export default function ProjectFormModal({ project, users = [], onClose, onSaved
     })
   }
 
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+      e.preventDefault()
+      submit(e)
+    }
+  }
+
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className="modal" style={{ width: 600 }}>
         <div className="modal-header">
-          <h2 className="modal-title">{isEdit ? 'Edit Project' : 'Create New Project'}</h2>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
+          <h2 className="modal-title" style={{ fontSize: '1.25rem', fontWeight: 600 }}>{isEdit ? 'Edit Project' : 'Create New Project'}</h2>
+          <button type="button" className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
         </div>
 
-        <form onSubmit={submit}>
+        <form onSubmit={submit} onKeyDown={handleKeyDown}>
           <div className="modal-body">
             {errors.api && <div style={{ color: 'var(--red)', fontSize: '0.85rem', marginBottom: 12, padding: '8px 12px', background: 'var(--red-dim)', borderRadius: 6 }}>{errors.api}</div>}
 
-            <div className="form-group">
-              <label className="form-label">Project Name *</label>
-              <input name="projectName" value={form.projectName} onChange={change} className="form-input" placeholder="Enter project name" />
-              {errors.projectName && <span className="form-error">{errors.projectName}</span>}
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Description</label>
-              <textarea name="description" value={form.description} onChange={change} className="form-textarea" placeholder="Project description..." />
-            </div>
-
             <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Start Date *</label>
-                <input name="startDate" type="date" value={form.startDate} onChange={change} className="form-input" />
-                {errors.startDate && <span className="form-error">{errors.startDate}</span>}
+                <label className="form-label">Project Name <span style={{ color: '#ef4444' }}>*</span></label>
+                <input name="projectName" value={form.projectName} onChange={change} className="form-input" placeholder="Website Redesign" />
+                {errors.projectName && <span className="form-error">{errors.projectName}</span>}
               </div>
               <div className="form-group">
-                <label className="form-label">End Date *</label>
-                <input name="endDate" type="date" value={form.endDate} onChange={change} className="form-input" />
-                {errors.endDate && <span className="form-error">{errors.endDate}</span>}
+                <label className="form-label">Project Manager <span style={{ color: '#ef4444' }}>*</span></label>
+                <select name="managerId" value={form.managerId} onChange={change} className="form-select">
+                  <option value="">Select manager</option>
+                  {users.map(u => (
+                    <option key={u.userId} value={u.userId}>{u.fullName || `${u.firstName} ${u.lastName}`}</option>
+                  ))}
+                </select>
               </div>
             </div>
 
             <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Status</label>
+                <label className="form-label">Status <span style={{ color: '#ef4444' }}>*</span></label>
                 <select name="status" value={form.status} onChange={change} className="form-select">
                   {STATUSES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Priority</label>
+                <label className="form-label">Priority <span style={{ color: '#ef4444' }}>*</span></label>
                 <select name="priority" value={form.priority} onChange={change} className="form-select">
                   <option value="LOW">Low</option>
                   <option value="MEDIUM">Medium</option>
@@ -112,18 +112,36 @@ export default function ProjectFormModal({ project, users = [], onClose, onSaved
 
             <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Project Manager</label>
-                <select name="managerId" value={form.managerId} onChange={change} className="form-select">
-                  <option value="">Select manager</option>
-                  {users.map(u => (
-                    <option key={u.userId} value={u.userId}>{u.fullName || `${u.firstName} ${u.lastName}`}</option>
-                  ))}
-                </select>
+                <label className="form-label">Start Date <span style={{ color: '#ef4444' }}>*</span></label>
+                <input name="startDate" type="date" value={form.startDate} onChange={change} className="form-input" />
+                {errors.startDate && <span className="form-error">{errors.startDate}</span>}
               </div>
               <div className="form-group">
-                <label className="form-label">Client Name</label>
-                <input name="clientName" value={form.clientName} onChange={change} className="form-input" placeholder="Client / organization" />
+                <label className="form-label">End Date <span style={{ color: '#ef4444' }}>*</span></label>
+                <input name="endDate" type="date" value={form.endDate} onChange={change} className="form-input" />
+                {errors.endDate && <span className="form-error">{errors.endDate}</span>}
               </div>
+            </div>
+
+            <div className="form-group" style={{ width: 'calc(50% - 8px)' }}>
+              <label className="form-label">Budget (₹) <span style={{ color: '#ef4444' }}>*</span></label>
+              <input name="budget" type="number" value={form.budget || ''} onChange={change} className="form-input" placeholder="2,00,000" />
+            </div>
+
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Description</label>
+              <textarea 
+                name="description" 
+                value={form.description} 
+                onChange={(e) => {
+                  change(e);
+                  e.target.style.height = 'inherit';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }} 
+                className="form-textarea" 
+                placeholder="Complete redesign of the company website including UI/UX improvements, content updates and performance optimization."
+                style={{ overflow: 'hidden', minHeight: '80px', resize: 'none' }}
+              />
             </div>
           </div>
 

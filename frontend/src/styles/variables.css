@@ -11,8 +11,8 @@
   --sidebar-text:      #a0aec0;
   --sidebar-text-active: #ffffff;
   --sidebar-border:    rgba(255, 255, 255, 0.06);
-  --sidebar-width:     155px;
-  --sidebar-collapsed: 64px;
+  --sidebar-width:     240px;
+  --sidebar-collapsed: 80px;
 
   /* ---- Main content ---- */
   --bg-main:     #f4f6fc;
@@ -30,8 +30,8 @@
 
   /* ---- Text ---- */
   --text-primary:   #1e2139;
-  --text-secondary: #6b7280;
-  --text-muted:     #9ca3af;
+  --text-secondary: #4b5563;
+  --text-muted:     #6b7280;
   --text-on-dark:   #ffffff;
 
   /* ---- Status ---- */
@@ -62,7 +62,7 @@
   --radius-md: 10px;
   --radius-lg: 14px;
   --radius-xl: 20px;
-  --radius-full: 9999px;
+  --radius-full: 6px;
 
   /* ---- Transitions ---- */
   --ease: 0.18s ease;

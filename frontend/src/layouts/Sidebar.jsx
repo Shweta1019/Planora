@@ -4,99 +4,55 @@ import { useRole, ROLES } from '../store/useRole'
 import {
   LayoutDashboard, FolderKanban, CheckSquare, Users,
   Wallet, FileText, BarChart2, Bell, Activity,
-  Settings, ChevronLeft, ChevronRight, LogOut, Boxes, UserPlus
+  Settings, ChevronsLeft, ChevronsRight, LogOut, Boxes, UserPlus
 } from 'lucide-react'
-
-// All nav items with their allowed roles (empty = all roles)
-const ALL_NAV = [
-  {
-    to: '/dashboard',
-    icon: LayoutDashboard,
-    label: 'Dashboard',
-    roles: [ROLES.ADMIN, ROLES.PM, ROLES.EMPLOYEE],
-  },
-  {
-    to: '/projects',
-    icon: FolderKanban,
-    label: 'My Projects',
-    roles: [ROLES.ADMIN, ROLES.PM],
-  },
-  {
-    to: '/tasks',
-    icon: CheckSquare,
-    label: 'Tasks',
-    roles: [ROLES.PM, ROLES.EMPLOYEE],   // Hidden from ADMIN
-  },
-  {
-    to: '/resources',
-    icon: Boxes,
-    label: 'Resources',
-    roles: [ROLES.ADMIN, ROLES.PM],
-  },
-  {
-    to: '/users',
-    icon: Users,
-    label: 'Team Members',
-    roles: [ROLES.ADMIN],                          // Admin only
-  },
-  {
-    to: '/signup',
-    icon: UserPlus,
-    label: 'Create Account',
-    roles: [ROLES.ADMIN],                          // Admin only
-  },
-  {
-    to: '/budgets',
-    icon: Wallet,
-    label: 'Budgets',
-    roles: [ROLES.ADMIN, ROLES.PM],
-  },
-  {
-    to: '/files',
-    icon: FileText,
-    label: 'Files',
-    roles: [ROLES.ADMIN, ROLES.PM, ROLES.EMPLOYEE],
-  },
-  {
-    to: '/reports',
-    icon: BarChart2,
-    label: 'Reports',
-    roles: [ROLES.ADMIN, ROLES.PM],
-  },
-  {
-    to: '/notifications',
-    icon: Bell,
-    label: 'Notifications',
-    roles: [ROLES.ADMIN, ROLES.PM, ROLES.EMPLOYEE],
-  },
-  {
-    to: '/activity',
-    icon: Activity,
-    label: 'Activity Log',
-    roles: [ROLES.ADMIN],                          // Admin only
-  },
-  {
-    to: '/settings',
-    icon: Settings,
-    label: 'Settings',
-    roles: [ROLES.ADMIN, ROLES.PM, ROLES.EMPLOYEE],
-  },
-]
-
-// Role badge colours
-const ROLE_BADGE = {
-  [ROLES.ADMIN]: { label: 'Admin', bg: '#ede9fe', color: '#7c3aed' },
-  [ROLES.PM]: { label: 'Project Manager', bg: '#dbeafe', color: '#2563eb' },
-  [ROLES.EMPLOYEE]: { label: 'Employee', bg: '#d1fae5', color: '#059669' },
-}
 
 export default function Sidebar({ collapsed, onToggle, notifCount = 0 }) {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const { role } = useRole()
 
-  // Filter nav items by role
-  const navItems = ALL_NAV.filter(item => item.roles.includes(role))
+  // Role badge colours
+  const ROLE_BADGE = {
+    [ROLES.ADMIN]: { label: 'Admin', bg: '#ede9fe', color: '#7c3aed' },
+    [ROLES.PM]: { label: 'Project Manager', bg: '#dbeafe', color: '#2563eb' },
+    [ROLES.EMPLOYEE]: { label: 'Employee', bg: '#d1fae5', color: '#059669' },
+  }
+
+  function getNavItems(currentRole) {
+    if (currentRole === ROLES.ADMIN) {
+      return [
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { to: '/projects', icon: FolderKanban, label: 'Projects' },
+        { to: '/users', icon: Users, label: 'Users' },
+        { to: '/resources', icon: Boxes, label: 'Resources' },
+        { to: '/budgets', icon: Wallet, label: 'Budgets' },
+        { to: '/reports', icon: BarChart2, label: 'Reports' },
+        { to: '/notifications', icon: Bell, label: 'Notifications' },
+      ]
+    } else if (currentRole === ROLES.PM) {
+      return [
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { to: '/projects', icon: FolderKanban, label: 'Projects' },
+        { to: '/tasks', icon: CheckSquare, label: 'Tasks' },
+        { to: '/users', icon: Users, label: 'Team Members' },
+        { to: '/resources', icon: Boxes, label: 'Resources' },
+        { to: '/budgets', icon: Wallet, label: 'Budgets' },
+        { to: '/reports', icon: BarChart2, label: 'Reports' },
+        { to: '/notifications', icon: Bell, label: 'Notifications' },
+      ]
+    } else {
+      // EMPLOYEE or fallback
+      return [
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+        { to: '/tasks', icon: CheckSquare, label: 'My Tasks' },
+        { to: '/projects', icon: FolderKanban, label: 'My Projects' },
+        { to: '/notifications', icon: Bell, label: 'Notifications' },
+      ]
+    }
+  }
+
+  const navItems = getNavItems(role)
 
   function handleLogout() {
     logout()
@@ -112,12 +68,7 @@ export default function Sidebar({ collapsed, onToggle, notifCount = 0 }) {
     >
       {/* Logo */}
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <img src="/logo.svg" alt="Planora" width={22} height={22}
-            onError={e => { e.target.style.display = 'none' }}
-          />
-          <span style={{ display: 'none' }}>P</span>
-        </div>
+        <div className="sidebar-logo-icon">P</div>
         {!collapsed && (
           <div>
             <div className="sidebar-brand">Planora</div>
@@ -150,11 +101,10 @@ export default function Sidebar({ collapsed, onToggle, notifCount = 0 }) {
         ))}
       </nav>
 
-      {/* Footer: copyright + collapse */}
-      <div className="sidebar-footer">
-        {!collapsed && <span className="sidebar-footer-copy">© 2024 Planora</span>}
-        <button className="sidebar-footer-collapse" onClick={onToggle} title="Toggle sidebar">
-          {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+      {/* Footer: collapse */}
+      <div className="sidebar-footer" style={{ justifyContent: 'center', padding: '16px 0' }}>
+        <button className="sidebar-footer-collapse" onClick={onToggle} title="Toggle sidebar" style={{ color: 'white', background: 'transparent', border: 'none', cursor: 'pointer' }}>
+          {collapsed ? <ChevronsRight size={22} strokeWidth={2.5} color="white" /> : <ChevronsLeft size={22} strokeWidth={2.5} color="white" />}
         </button>
       </div>
     </aside>

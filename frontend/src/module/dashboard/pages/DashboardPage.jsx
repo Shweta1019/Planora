@@ -1,166 +1,91 @@
 import { useQuery } from '@tanstack/react-query'
-import api from '../../../api/axiosConfig'
+import { useAuthStore } from '../../../store/authStore'
 import { projectApi } from '../../../api/projectApi'
+import { taskApi } from '../../../api/taskApi'
+import { userApi } from '../../../api/userApi'
 import { activityApi } from '../../../api/activityApi'
-import StatsCard       from '../components/StatsCard'
-import ProjectChart    from '../components/ProjectChart'
-import TaskChart       from '../components/TaskChart'
-import RecentActivities from '../components/RecentActivities'
-import {
-  FolderKanban, Users, CheckSquare,
-  Clock, CheckCircle2, CalendarClock
-} from 'lucide-react'
-import { formatDate, formatPct } from '../../../utils/formatDate'
+
+import DashboardEmployee from './DashboardEmployee'
+import DashboardManager from './DashboardManager'
+import DashboardAdmin from './DashboardAdmin'
+import { useEffect, useState } from 'react'
 
 export default function DashboardPage() {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn:  () => api.get('/dashboard/stats').then(r => r.data?.data || r.data),
-    staleTime: 60_000,
-  })
+  const user = useAuthStore(state => state.user)
+  const role = user?.role
 
-  const { data: projects = [] } = useQuery({
+  // Fetch all necessary data concurrently based on role
+  const { data: projects = [], isLoading: pLoading } = useQuery({
     queryKey: ['projects-list'],
-    queryFn:  () => projectApi.getAll().then(r => r.data?.data || r.data || []),
+    queryFn: () => projectApi.getAll().then(r => r.data?.data || r.data || []),
     staleTime: 60_000,
   })
 
-  const { data: activities = [] } = useQuery({
+  const { data: activities = [], isLoading: aLoading } = useQuery({
     queryKey: ['recent-activity'],
-    queryFn:  () => activityApi.getAll({ size: 6 }).then(r => {
+    queryFn: () => activityApi.getAll({ size: 10 }).then(r => {
       const d = r.data?.data || r.data
       return Array.isArray(d) ? d : d?.content || []
     }),
     staleTime: 30_000,
   })
 
-  const topProjects = [...projects]
-    .sort((a, b) => (b.completionPercentage || 0) - (a.completionPercentage || 0))
-    .slice(0, 5)
+  // Admins and Managers need all users
+  const { data: users = [], isLoading: uLoading } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: () => userApi.getAll().then(r => r.data?.data || r.data || []),
+    staleTime: 60_000,
+    enabled: role === 'ADMIN' || role === 'PROJECT_MANAGER',
+  })
 
-  // upcoming deadlines — projects ending soon
-  const upcoming = [...projects]
-    .filter(p => p.endDate && p.status !== 'COMPLETED')
-    .sort((a, b) => new Date(a.endDate) - new Date(b.endDate))
-    .slice(0, 5)
+  // We need tasks. For Employee: fetch tasks assigned to them.
+  // For Manager: fetch tasks from their projects.
+  // For Admin: Ideally fetch all tasks. Since there is no getAll tasks endpoint, 
+  // we will fetch tasks for all projects and flatten.
+  const [tasks, setTasks] = useState([])
+  const [tLoading, setTLoading] = useState(true)
 
-  if (isLoading) return (
-    <div className="page-loader"><div className="spinner" /> Loading dashboard…</div>
-  )
+  useEffect(() => {
+    let isMounted = true
+    const fetchTasks = async () => {
+      try {
+        if (role === 'EMPLOYEE' && user?.userId) {
+          const res = await taskApi.getByUser(user.userId)
+          if (isMounted) setTasks(res.data?.data || res.data || [])
+        } else if (projects.length > 0) {
+          // Admin or Manager: fetch tasks for all available projects
+          const promises = projects.map(p => taskApi.getByProject(p.projectId))
+          const results = await Promise.all(promises)
+          const allTasks = results.flatMap(res => res.data?.data || res.data || [])
+          if (isMounted) setTasks(allTasks)
+        } else if (projects.length === 0 && !pLoading) {
+           if (isMounted) setTasks([])
+        }
+      } catch (err) {
+        console.error("Error fetching tasks for dashboard:", err)
+      } finally {
+        if (isMounted) setTLoading(false)
+      }
+    }
+    fetchTasks()
+    return () => { isMounted = false }
+  }, [role, user?.userId, projects, pLoading])
 
-  return (
-    <div>
-      {/* Header */}
-      <div className="page-header">
-        <div>
-          <h1 className="page-heading">Dashboard</h1>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem', color: 'var(--text-secondary)', background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: '6px 14px' }}>
-          <CalendarClock size={14} />
-          {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-        </div>
-      </div>
+  const isLoading = pLoading || aLoading || uLoading || tLoading
 
-      {/* Stat Cards */}
-      <div className="stat-cards">
-        <StatsCard
-          icon={FolderKanban} color="purple"
-          label="Total Projects" value={stats?.totalProjects}
-          change={stats?.totalProjectsChange}
-        />
-        <StatsCard
-          icon={Users} color="blue"
-          label="Total Employees" value={stats?.totalUsers}
-          change={stats?.totalUsersChange}
-        />
-        <StatsCard
-          icon={CheckSquare} color="green"
-          label="Total Tasks" value={stats?.totalTasks}
-          change={stats?.totalTasksChange}
-        />
-        <StatsCard
-          icon={Clock} color="yellow"
-          label="In Progress Tasks" value={stats?.pendingTasks}
-          change={stats?.pendingChange}
-        />
-        <StatsCard
-          icon={CheckCircle2} color="purple"
-          label="Completed Tasks" value={stats?.completedTasks}
-          change={stats?.completedChange}
-        />
-      </div>
+  if (isLoading) {
+    return <div className="page-loader"><div className="spinner" /> Loading dashboard…</div>
+  }
 
-      {/* Charts row */}
-      <div className="grid-chart">
-        <div className="card chart-card">
-          <p className="chart-title">Project Progress Overview</p>
-          <ProjectChart stats={stats} />
-        </div>
-        <div className="card chart-card">
-          <p className="chart-title">Tasks Status</p>
-          <TaskChart stats={stats} />
-        </div>
-      </div>
+  if (role === 'ADMIN') {
+    return <DashboardAdmin user={user} projects={projects} users={users} activities={activities} />
+  }
 
-      {/* Bottom row */}
-      <div className="grid-bottom">
-        {/* Recent Activities */}
-        <div className="card">
-          <div className="section-header">
-            <span className="section-title">Recent Activities</span>
-            <a href="/activity" className="section-link">View All →</a>
-          </div>
-          <RecentActivities activities={activities} />
-        </div>
+  if (role === 'PROJECT_MANAGER') {
+    const team = users.filter(u => u.role !== 'ADMIN') // Basic team filter
+    return <DashboardManager user={user} projects={projects} tasks={tasks} activities={activities} team={team} />
+  }
 
-        {/* Upcoming Deadlines */}
-        <div className="card">
-          <div className="section-header">
-            <span className="section-title">Upcoming Deadlines</span>
-            <a href="/projects" className="section-link">View All →</a>
-          </div>
-          {upcoming.length === 0
-            ? <div className="empty-state" style={{ padding: 24 }}><p>No upcoming deadlines</p></div>
-            : upcoming.map(p => (
-              <div key={p.projectId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border-light)', gap: 8 }}>
-                <div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{p.projectName}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{p.managerName || 'No manager'}</div>
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--red)', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                  {formatDate(p.endDate)}
-                </div>
-              </div>
-            ))
-          }
-        </div>
-
-        {/* Top Projects */}
-        <div className="card">
-          <div className="section-header">
-            <span className="section-title">Top Projects</span>
-            <a href="/projects" className="section-link">View All →</a>
-          </div>
-          {topProjects.map(p => {
-            const pct = p.completionPercentage || 0
-            const color = pct >= 80 ? 'green' : pct >= 50 ? 'blue' : pct >= 25 ? 'yellow' : 'red'
-            return (
-              <div key={p.projectId} style={{ marginBottom: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 500 }}>{p.projectName}</span>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{pct}%</span>
-                </div>
-                <div className="progress-bar">
-                  <div className={`progress-fill ${color}`} style={{ width: `${pct}%` }} />
-                </div>
-              </div>
-            )
-          })}
-          {topProjects.length === 0 && (
-            <div className="empty-state" style={{ padding: 24 }}><p>No projects yet</p></div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
+  // EMPLOYEE is default fallback
+  return <DashboardEmployee user={user} projects={projects} tasks={tasks} activities={activities} />
 }

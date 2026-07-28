@@ -10,9 +10,10 @@ import java.time.LocalDate;
 
 @Data
 public class ProjectCreateRequestDto {
-
     @NotBlank(message = "Project name is required")
     private String projectName;
+
+    private com.planora.common.enums.ProjectStatus status;
 
     private String description;
 

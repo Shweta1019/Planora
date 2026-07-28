@@ -4,7 +4,7 @@ import { notificationApi } from '../../../api/notificationApi'
 import { useAuthStore } from '../../../store/authStore'
 import {
   Calendar, FileText, MessageSquare, Bell, Users,
-  CheckCheck, MoreVertical, CheckSquare
+  CheckCheck, MoreVertical, CheckSquare, X
 } from 'lucide-react'
 
 // type → icon + color matching screenshot exactly
@@ -31,7 +31,7 @@ function formatNotifDate(dateStr) {
   return d.toLocaleString('en-GB', {
     day: '2-digit', month: 'long', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: true,
-  })
+  }).toUpperCase()
 }
 
 export default function NotificationPage() {
@@ -42,6 +42,7 @@ export default function NotificationPage() {
   const [tab, setTab]         = useState('all')
   const [page, setPage]       = useState(1)
   const [openMenu, setOpenMenu] = useState(null)
+  const [selectedNotif, setSelectedNotif] = useState(null)
   const pageSize = 8
 
   // fetch all notifications for this user
@@ -51,7 +52,8 @@ export default function NotificationPage() {
       const d = r.data?.data || r.data
       return Array.isArray(d) ? d : d?.content || []
     }),
-    staleTime: 30_000,
+    refetchInterval: 3_000,
+    staleTime: 1_000,
     enabled: !!userId,
   })
 
@@ -67,19 +69,57 @@ export default function NotificationPage() {
   // mark single read mutation
   const markOneMut = useMutation({
     mutationFn: (id) => notificationApi.markRead(id),
-    onSuccess: () => {
+    onMutate: async (id) => {
+      // Cancel any outgoing refetches
+      await qc.cancelQueries({ queryKey: ['notifications', userId] })
+      await qc.cancelQueries({ queryKey: ['notif-unread', userId] })
+
+      // Snapshot the previous value
+      const previousNotifs = qc.getQueryData(['notifications', userId])
+      const previousUnread = qc.getQueryData(['notif-unread', userId])
+
+      // Optimistically update to the new value
+      qc.setQueryData(['notifications', userId], (old) => {
+        if (!old) return old
+        return old.map(n => {
+          const nId = n.notificationId || n.id
+          if (String(nId) === String(id)) return { ...n, read: true }
+          return n
+        })
+      })
+      qc.setQueryData(['notif-unread', userId], (old) => {
+        if (typeof old === 'number') return Math.max(0, old - 1)
+        if (old && typeof old.data === 'number') return { ...old, data: Math.max(0, old.data - 1) }
+        return old
+      })
+
+      return { previousNotifs, previousUnread }
+    },
+    onError: (err, id, context) => {
+      qc.setQueryData(['notifications', userId], context.previousNotifs)
+      qc.setQueryData(['notif-unread', userId], context.previousUnread)
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ['notifications', userId] })
       qc.invalidateQueries({ queryKey: ['notif-unread', userId] })
     },
   })
 
-  const unreadCount = notifs.filter(n => !n.isRead).length
-  const readCount   = notifs.filter(n => n.isRead).length
+  function handleNotifClick(n) {
+    setSelectedNotif(n)
+    const id = n.notificationId || n.id
+    if (!n.read) {
+      markOneMut.mutate(id)
+    }
+  }
+
+  const unreadCount = notifs.filter(n => !n.read).length
+  const readCount   = notifs.filter(n => n.read).length
 
   // filter by tab
   const filtered = notifs.filter(n => {
-    if (tab === 'unread') return !n.isRead
-    if (tab === 'read')   return n.isRead
+    if (tab === 'unread') return !n.read
+    if (tab === 'read')   return n.read
     return true
   })
 
@@ -96,10 +136,9 @@ export default function NotificationPage() {
   return (
     <div onClick={() => setOpenMenu(null)}>
       {/* Page header */}
-      <div className="page-header">
+      <div className="page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 className="page-heading">Notifications</h1>
-          <p className="page-subheading">Here are your recent notifications.</p>
         </div>
         <button
           onClick={(e) => { e.stopPropagation(); markAllMut.mutate() }}
@@ -108,7 +147,7 @@ export default function NotificationPage() {
             display: 'flex', alignItems: 'center', gap: 7,
             padding: '8px 16px', borderRadius: 8,
             border: '1px solid #e0d7ff',
-            background: '#f5f3ff', color: '#6d28d9',
+            background: 'transparent', color: '#6d28d9',
             fontSize: '0.85rem', fontWeight: 500,
             cursor: unreadCount === 0 ? 'not-allowed' : 'pointer',
             opacity: unreadCount === 0 ? 0.5 : 1,
@@ -121,24 +160,25 @@ export default function NotificationPage() {
       </div>
 
       {/* Filter tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 18 }}>
+      <div style={{ display: 'flex', gap: 24, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
         {tabs.map(t => {
           const active = tab === t.key
           return (
-            <button
+            <div
               key={t.key}
               onClick={() => { setTab(t.key); setPage(1) }}
               style={{
-                padding: '7px 18px', borderRadius: 8,
-                border: 'none', cursor: 'pointer',
-                fontWeight: 600, fontSize: '0.85rem',
-                background: active ? '#6d28d9' : 'transparent',
-                color: active ? '#fff' : '#6b7280',
-                transition: 'all 0.15s',
+                paddingBottom: 10,
+                color: active ? 'var(--purple)' : 'var(--text-secondary)',
+                borderBottom: active ? '2px solid var(--purple)' : '2px solid transparent',
+                fontWeight: active ? 600 : 500,
+                fontSize: '0.95rem',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
               }}
             >
               {t.label}
-            </button>
+            </div>
           )
         })}
       </div>
@@ -169,20 +209,24 @@ export default function NotificationPage() {
             return (
               <div
                 key={id}
+                onClick={() => handleNotifClick(n)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 16,
                   padding: '18px 20px',
                   borderBottom: i < paged.length - 1 ? '1px solid #f0f0f0' : 'none',
-                  background: n.isRead ? '#fff' : '#fafbff',
+                  background: '#fff',
                   position: 'relative',
+                  cursor: 'pointer',
                   transition: 'background 0.15s',
                 }}
+                onMouseEnter={(e) => e.currentTarget.style.background = '#f9fafb'}
+                onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
               >
                 {/* Unread dot */}
                 <div style={{
                   width: 9, height: 9, borderRadius: '50%',
-                  background: n.isRead ? 'transparent' : '#6d28d9',
-                  border: n.isRead ? '1.5px solid #e5e7eb' : 'none',
+                  background: n.read ? 'transparent' : '#6d28d9',
+                  border: n.read ? '1.5px solid #e5e7eb' : 'none',
                   flexShrink: 0,
                 }}/>
 
@@ -213,7 +257,7 @@ export default function NotificationPage() {
                 </div>
 
                 {/* "New" badge — only for unread */}
-                {!n.isRead && (
+                {!n.read && (
                   <span
                     onClick={(e) => { e.stopPropagation(); markOneMut.mutate(id) }}
                     style={{
@@ -221,7 +265,7 @@ export default function NotificationPage() {
                       background: '#ede9fe', color: '#6d28d9',
                       fontSize: '0.75rem', fontWeight: 600,
                       flexShrink: 0, cursor: 'pointer',
-                      border: '1px solid #ddd6fe',
+                      border: 'none',
                       userSelect: 'none',
                     }}
                     title="Click to mark as read"
@@ -255,9 +299,9 @@ export default function NotificationPage() {
                         minWidth: 160, overflow: 'hidden',
                       }}
                     >
-                      {!n.isRead && (
+                      {!n.read && (
                         <button
-                          onClick={() => { markOneMut.mutate(id); setOpenMenu(null) }}
+                          onClick={(e) => { e.stopPropagation(); markOneMut.mutate(id); setOpenMenu(null) }}
                           style={{
                             width: '100%', padding: '9px 14px', textAlign: 'left',
                             background: 'none', border: 'none', cursor: 'pointer',
@@ -269,7 +313,7 @@ export default function NotificationPage() {
                         </button>
                       )}
                       <button
-                        onClick={() => setOpenMenu(null)}
+                        onClick={(e) => { e.stopPropagation(); setOpenMenu(null) }}
                         style={{
                           width: '100%', padding: '9px 14px', textAlign: 'left',
                           background: 'none', border: 'none', cursor: 'pointer',
@@ -317,6 +361,59 @@ export default function NotificationPage() {
           </div>
         )}
       </div>
+
+      {/* Notification Details Modal */}
+      {selectedNotif && (
+        <div className="modal-overlay" onClick={(e) => e.target === e.currentTarget && setSelectedNotif(null)}>
+          <div className="modal" style={{ width: 500 }}>
+            <div className="modal-header">
+              <h2 className="modal-title" style={{ fontSize: '1.2rem', fontWeight: 600 }}>Notification Details</h2>
+              <button className="btn btn-ghost btn-icon" onClick={() => setSelectedNotif(null)}><X size={18} /></button>
+            </div>
+            
+            <div className="modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+                {(() => {
+                  const conf = getConf(selectedNotif.type);
+                  const IconComp = conf.Icon;
+                  return (
+                    <div style={{
+                      width: 52, height: 52, borderRadius: 12,
+                      background: conf.bg,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      flexShrink: 0,
+                    }}>
+                      <IconComp size={24} color={conf.color} strokeWidth={1.8}/>
+                    </div>
+                  );
+                })()}
+                <div>
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: '0 0 4px 0' }}>{selectedNotif.title}</h3>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    {formatNotifDate(selectedNotif.createdAt)}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ 
+                background: 'var(--bg-input)', 
+                padding: '16px', 
+                borderRadius: '8px', 
+                border: '1px solid var(--border)',
+                fontSize: '0.9rem',
+                color: 'var(--text-primary)',
+                lineHeight: 1.6
+              }}>
+                {selectedNotif.message}
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+              <button className="btn btn-outline" onClick={() => setSelectedNotif(null)} style={{ marginLeft: 'auto' }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

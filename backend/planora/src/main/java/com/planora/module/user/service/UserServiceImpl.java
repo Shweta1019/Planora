@@ -51,7 +51,14 @@ public class UserServiceImpl implements UserService {
 
         if (dto.getFirstName() != null)    user.setFirstName(dto.getFirstName());
         if (dto.getLastName() != null)     user.setLastName(dto.getLastName());
+        if (dto.getEmail() != null && !dto.getEmail().equals(user.getEmail())) {
+            if (userRepository.existsByEmail(dto.getEmail())) {
+                throw new IllegalArgumentException("Email already in use: " + dto.getEmail());
+            }
+            user.setEmail(dto.getEmail());
+        }
         if (dto.getPhoneNo() != null)      user.setPhoneNo(dto.getPhoneNo());
+        if (dto.getRole() != null)         user.setRole(dto.getRole());
         if (dto.getDepartment() != null)   user.setDepartment(dto.getDepartment());
         if (dto.getDesignation() != null)  user.setDesignation(dto.getDesignation());
         if (dto.getProfileImage() != null) user.setProfileImage(dto.getProfileImage());

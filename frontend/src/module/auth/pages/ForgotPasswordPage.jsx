@@ -1,39 +1,21 @@
 import { useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../../store/authStore'
 import { authApi } from '../../../api/authApi'
 import {
-  Lock, Eye, EyeOff, Loader2, CheckCircle,
-  LayoutDashboard, FolderKanban, CheckSquare, Users,
-  FileText, BarChart2, Bell, Settings, LogOut, Boxes,
+  Lock, Eye, EyeOff, Loader2, CheckCircle, Mail
 } from 'lucide-react'
 
-/* ── Sidebar nav items (mirrors the real Sidebar.jsx) ─────── */
-const NAV = [
-  { to: '/dashboard',     icon: LayoutDashboard, label: 'Dashboard'     },
-  { to: '/projects',      icon: FolderKanban,    label: 'Projects'      },
-  { to: '/tasks',         icon: CheckSquare,     label: 'Tasks'         },
-  { to: '/users',         icon: Users,           label: 'Team Members'  },
-  { to: '/resources',     icon: Boxes,           label: 'Resources'     },
-  { to: '/reports',       icon: BarChart2,       label: 'Reports'       },
-  { to: '/files',         icon: FileText,        label: 'Documents'     },
-  { to: '/notifications', icon: Bell,            label: 'Notifications' },
-]
-
-const NAV_BOTTOM = [
-  { to: '/settings', icon: Settings, label: 'Settings' },
-]
-
 export default function ForgotPasswordPage() {
-  const navigate        = useNavigate()
-  const { token, user, logout } = useAuthStore()
+  const navigate = useNavigate()
+  const { logout } = useAuthStore()
 
-  const [form, setForm]               = useState({ newPassword: '', confirmPassword: '' })
-  const [showNew, setShowNew]         = useState(false)
+  const [form, setForm] = useState({ email: '', newPassword: '', confirmPassword: '' })
+  const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [loading, setLoading]         = useState(false)
-  const [error, setError]             = useState('')
-  const [success, setSuccess]         = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState(false)
 
   const mismatch =
     form.newPassword && form.confirmPassword &&
@@ -48,7 +30,7 @@ export default function ForgotPasswordPage() {
     e.preventDefault()
     setError('')
 
-    if (!form.newPassword || !form.confirmPassword) {
+    if (!form.email || !form.newPassword || !form.confirmPassword) {
       setError('Please fill in all fields.'); return
     }
     if (form.newPassword.length < 6) {
@@ -60,7 +42,7 @@ export default function ForgotPasswordPage() {
 
     setLoading(true)
     try {
-      await authApi.resetPassword({ newPassword: form.newPassword })
+      await authApi.forgotPassword({ email: form.email, newPassword: form.newPassword })
       setSuccess(true)
       // Log out after reset so the new password takes effect cleanly
       setTimeout(() => {
@@ -69,11 +51,7 @@ export default function ForgotPasswordPage() {
       }, 2000)
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data || ''
-      if (err.response?.status === 401 || !token) {
-        setError('You must be logged in to reset your password. Please log in first.')
-      } else {
-        setError(msg || 'Failed to reset password. Please try again.')
-      }
+      setError(msg || 'Failed to reset password. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -88,126 +66,10 @@ export default function ForgotPasswordPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
 
-      {/* ══ LEFT — Navy Sidebar ══════════════════════════════════ */}
-      <aside style={{
-        width: 220,
-        flexShrink: 0,
-        background: '#1e2139',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        top: 0, bottom: 0, left: 0,
-        zIndex: 100,
-      }}>
-
-        {/* Logo */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '20px 16px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
-        }}>
-          <div style={{
-            width: 38, height: 38, borderRadius: 10,
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0, fontWeight: 800, color: '#fff', fontSize: '1.1rem',
-          }}>P</div>
-          <div>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: '1rem', lineHeight: 1.2 }}>
-              Planora
-            </div>
-            <div style={{ color: '#a0aec0', fontSize: '0.65rem', lineHeight: 1.3 }}>
-              Project Management System
-            </div>
-          </div>
-        </div>
-
-        {/* Main nav */}
-        <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-          {NAV.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 10px', borderRadius: 8, marginBottom: 2,
-                fontSize: '0.875rem', fontWeight: 500, textDecoration: 'none',
-                color: isActive ? '#fff' : '#a0aec0',
-                background: isActive ? 'rgba(99,102,241,0.2)' : 'transparent',
-                transition: 'all 0.15s',
-              })}
-            >
-              <Icon size={18} strokeWidth={1.8} style={{ flexShrink: 0 }} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        {/* Divider */}
-        <div style={{ height: 1, background: 'rgba(255,255,255,0.06)', margin: '0 8px' }} />
-
-        {/* Bottom nav */}
-        <nav style={{ padding: '8px 8px 4px' }}>
-          {NAV_BOTTOM.map(({ to, icon: Icon, label }) => (
-            <NavLink
-              key={to}
-              to={to}
-              style={({ isActive }) => ({
-                display: 'flex', alignItems: 'center', gap: 10,
-                padding: '9px 10px', borderRadius: 8, marginBottom: 2,
-                fontSize: '0.875rem', fontWeight: 500, textDecoration: 'none',
-                color: isActive ? '#fff' : '#a0aec0',
-                background: isActive ? 'rgba(99,102,241,0.2)' : 'transparent',
-                transition: 'all 0.15s',
-              })}
-            >
-              <Icon size={18} strokeWidth={1.8} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
-
-          {/* Profile */}
-          <NavLink
-            to="/settings"
-            style={{ display: 'flex', alignItems: 'center', gap: 10,
-              padding: '9px 10px', borderRadius: 8, marginBottom: 2,
-              fontSize: '0.875rem', fontWeight: 500, textDecoration: 'none',
-              color: '#a0aec0', transition: 'all 0.15s' }}
-          >
-            <Users size={18} strokeWidth={1.8} />
-            <span>Profile</span>
-          </NavLink>
-
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 10, width: '100%',
-              padding: '9px 10px', borderRadius: 8, marginBottom: 2,
-              fontSize: '0.875rem', fontWeight: 500, textDecoration: 'none',
-              color: '#a0aec0', background: 'transparent', border: 'none', cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-          >
-            <LogOut size={18} strokeWidth={1.8} />
-            <span>Logout</span>
-          </button>
-        </nav>
-
-        {/* Footer */}
-        <div style={{
-          padding: '12px 16px',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          color: '#a0aec0', fontSize: '0.72rem', lineHeight: 1.5,
-        }}>
-          © 2024 Planora<br />All rights reserved.
-        </div>
-      </aside>
-
-      {/* ══ RIGHT — Lavender Content Area ════════════════════════ */}
+      {/* ══ Content Area ════════════════════════ */}
       <main style={{
         flex: 1,
-        marginLeft: 220,
+        marginLeft: 0,
         minHeight: '100vh',
         background: '#f5f3ff',
         display: 'flex',
@@ -295,22 +157,7 @@ export default function ForgotPasswordPage() {
               </p>
             </div>
 
-            {/* Not logged in warning */}
-            {!token && (
-              <div style={{
-                background: '#fef3c7', border: '1px solid #fcd34d', color: '#92400e',
-                borderRadius: 10, padding: '10px 14px', marginBottom: 20,
-                fontSize: '0.83rem', display: 'flex', alignItems: 'center', gap: 8,
-              }}>
-                ⚠ You are not logged in. Please{' '}
-                <span
-                  style={{ fontWeight: 700, cursor: 'pointer', textDecoration: 'underline' }}
-                  onClick={() => navigate('/login')}
-                >
-                  sign in
-                </span>{' '}first.
-              </div>
-            )}
+
 
             {/* Error alert */}
             {error && (
@@ -325,6 +172,39 @@ export default function ForgotPasswordPage() {
 
             {/* Form */}
             <form onSubmit={submit} noValidate>
+
+              {/* Email */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{
+                  display: 'block', fontSize: '0.88rem', fontWeight: 600,
+                  color: '#374151', marginBottom: 8,
+                }}>
+                  Email Address <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <Mail size={16} style={{
+                    position: 'absolute', left: 14, top: '50%',
+                    transform: 'translateY(-50%)', color: '#9ca3af',
+                  }} />
+                  <input
+                    id="fp-email"
+                    name="email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={form.email}
+                    onChange={change}
+                    style={{
+                      width: '100%', padding: '13px 14px 13px 42px',
+                      border: '1.5px solid #e5e7eb', borderRadius: 10,
+                      fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+                      background: '#fff', color: '#111827',
+                      transition: 'border-color 0.15s',
+                    }}
+                    onFocus={e => e.target.style.borderColor = '#7c3aed'}
+                    onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                  />
+                </div>
+              </div>
 
               {/* New Password */}
               <div style={{ marginBottom: 20 }}>

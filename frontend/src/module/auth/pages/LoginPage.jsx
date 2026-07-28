@@ -83,11 +83,8 @@ export default function LoginPage() {
 
             {/* Logo row */}
             <div className="login-brand-row">
-              <div className="login-logo-box">
-                <svg width="22" height="22" viewBox="0 0 32 32" fill="none">
-                  <path d="M8 24V10l8-4 8 4v14l-8 4-8-4z" fill="white" fillOpacity="0.95" />
-                  <path d="M16 6v20M8 10l8 4 8-4" stroke="white" strokeWidth="1.5" />
-                </svg>
+              <div className="login-logo-box" style={{ color: 'white', fontWeight: 'bold', fontSize: '20px' }}>
+                P
               </div>
               <span className="login-brand-name">Planora</span>
             </div>

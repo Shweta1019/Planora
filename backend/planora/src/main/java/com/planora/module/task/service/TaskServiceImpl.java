@@ -94,6 +94,14 @@ public class TaskServiceImpl implements TaskService {
                     "Task \"" + task.getTitle() + "\" has been assigned to you.",
                     "TASK_ASSIGNED"
             );
+        } else if (task.getAssignedTo() != null) {
+            // normal update notification
+            notificationService.send(
+                    task.getAssignedTo().getUserId(),
+                    "Task Updated",
+                    "Task \"" + task.getTitle() + "\" has been updated.",
+                    "TASK_UPDATED"
+            );
         }
 
         return taskMapper.toResponseDto(taskRepository.save(task));
@@ -103,6 +111,16 @@ public class TaskServiceImpl implements TaskService {
     public TaskResponseDto updateTaskStatus(Long taskId, TaskStatusUpdateRequestDto dto) {
         Task task = findOrThrow(taskId);
         task.setStatus(dto.getStatus());
+        
+        if (task.getAssignedTo() != null) {
+            notificationService.send(
+                    task.getAssignedTo().getUserId(),
+                    "Task Status Updated",
+                    "Status of task \"" + task.getTitle() + "\" changed to " + dto.getStatus() + ".",
+                    "TASK_UPDATED"
+            );
+        }
+        
         return taskMapper.toResponseDto(taskRepository.save(task));
     }
 

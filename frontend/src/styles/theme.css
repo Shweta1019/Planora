@@ -145,11 +145,9 @@
 .btn-primary {
   background: var(--purple);
   color: #fff;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 .btn-primary:hover {
   background: var(--purple-dark);
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
   transform: translateY(-1px);
 }
 
@@ -1161,7 +1159,7 @@
 .settings-layout {
   display: flex;
   gap: 20px;
-  align-items: flex-start;
+  align-items: stretch;
 
   /* Fill the remaining vertical space inside .page-content.
      page-content already has margin-top: var(--navbar-h) and padding: 24px,
@@ -1205,6 +1203,12 @@
   min-width: 0;       /* prevents flex child from overflowing */
   overflow-y: auto;
   max-height: calc(100dvh - var(--navbar-h) - 48px);
+  display: flex;
+  flex-direction: column;
+}
+
+.settings-panel > .card {
+  flex: 1;
 }
 
 @supports (height: 100dvh) {

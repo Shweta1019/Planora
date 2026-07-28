@@ -9,5 +9,5 @@ export const projectApi = {
   getMembers:(id)            => api.get(`/projects/${id}/members`),
   addMember: (id, data)      => api.post(`/projects/${id}/members`, data),
   removeMember:(id, userId)  => api.delete(`/projects/${id}/members/${userId}`),
-  updateStatus:(id, status)  => api.patch(`/projects/${id}/status`, { status }),
+  updateStatus:(id, status)  => api.put(`/projects/${id}/status`, { status }),
 }

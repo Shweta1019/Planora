@@ -19,11 +19,21 @@ const routeTitles = {
   '/settings':      'Settings',
 }
 
-export default function Navbar({ onMenuToggle, notifCount = 0 }) {
+export default function Navbar({ collapsed, onMenuToggle, notifCount = 0 }) {
   const navigate   = useNavigate()
   const location   = useLocation()
   const { user, logout } = useAuthStore()
   const [dropOpen, setDropOpen] = useState(false)
+  const [photoUrl, setPhotoUrl] = useState(localStorage.getItem('planora_photo') || '')
+
+  useEffect(() => {
+    function handlePhotoUpdate() {
+      setPhotoUrl(localStorage.getItem('planora_photo') || '')
+    }
+    window.addEventListener('planora_photo_updated', handlePhotoUpdate)
+    return () => window.removeEventListener('planora_photo_updated', handlePhotoUpdate)
+  }, [])
+  const [searchQuery, setSearchQuery] = useState('')
   const dropRef = useRef(null)
 
   const pageTitle = Object.entries(routeTitles).find(([k]) =>
@@ -46,18 +56,35 @@ export default function Navbar({ onMenuToggle, notifCount = 0 }) {
     navigate('/login')
   }
 
+  function executeSearch() {
+    if (searchQuery.trim()) {
+      navigate(`${location.pathname}?q=${encodeURIComponent(searchQuery.trim())}`)
+    }
+  }
+
+  function handleSearch(e) {
+    if (e.key === 'Enter') {
+      executeSearch()
+    }
+  }
+
   return (
-    <header className="navbar">
+    <header className={`navbar${collapsed ? ' collapsed' : ''}`}>
       <div className="navbar-left">
         <button className="navbar-menu-btn" onClick={onMenuToggle}>
           <Menu size={20} />
         </button>
         <div className="navbar-search">
-          <Search size={15} className="navbar-search-icon" />
+          <button className="navbar-search-icon" onClick={executeSearch} title="Search">
+            <Search size={15} />
+          </button>
           <input
             type="text"
             placeholder="Search something..."
             className="navbar-search-input"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearch}
           />
         </div>
       </div>
@@ -81,9 +108,13 @@ export default function Navbar({ onMenuToggle, notifCount = 0 }) {
             className="navbar-user-btn"
             onClick={() => setDropOpen(v => !v)}
           >
-            <div className="avatar avatar-sm">
-              {initials(user?.fullName)}
-            </div>
+            {photoUrl ? (
+              <img src={photoUrl} alt="Profile" style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+            ) : (
+              <div className="avatar avatar-sm">
+                {initials(user?.fullName)}
+              </div>
+            )}
             <div className="navbar-user-info">
               <span className="navbar-user-name">{user?.fullName || 'User'}</span>
               <span className="navbar-user-role">{user?.role}</span>

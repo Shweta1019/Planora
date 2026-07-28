@@ -4,7 +4,7 @@ import { MoreHorizontal, Plus, Pencil, Trash2 } from 'lucide-react'
 import { statusBadgeClass, statusLabel, priorityBadgeClass, formatDate } from '../../../utils/formatDate'
 
 const COLUMNS = [
-  { key: 'TO_DO',       label: 'To Do',       color: '#9ca3af' },
+  { key: 'TODO',       label: 'To Do',       color: '#9ca3af' },
   { key: 'IN_PROGRESS', label: 'In Progress',  color: '#6366f1' },
   { key: 'IN_REVIEW',   label: 'In Review',    color: '#f97316' },
   { key: 'COMPLETED',   label: 'Completed',    color: '#10b981' },

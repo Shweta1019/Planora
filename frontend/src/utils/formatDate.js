@@ -73,7 +73,7 @@ export function statusBadgeClass(status = '') {
     'NOT_STARTED':     'badge-not-started',
     'OVERDUE':         'badge-overdue',
     'IN_REVIEW':       'badge-in-review',
-    'TO_DO':           'badge-not-started',
+    'TODO':            'badge-not-started',
     'ON_TRACK':        'badge-on-track',
     'OVER_BUDGET':     'badge-over-budget',
     'UNDER_BUDGET':    'badge-under-budget',
@@ -96,6 +96,8 @@ export function priorityBadgeClass(p = '') {
 }
 
 export function statusLabel(s = '') {
+  if (!s) return ''
+  if (s === 'TODO') return 'To Do'
   return s.replace(/_/g, ' ')
     .split(' ')
     .map(w => w[0] + w.slice(1).toLowerCase())
