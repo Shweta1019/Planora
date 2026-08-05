@@ -44,7 +44,6 @@ export default function ProjectDeleteModal({ project, onClose, onConfirm, isPend
               <div>
                 <div style={{ color: 'var(--text-secondary)', marginBottom: 4 }}>Project Manager</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 500 }}>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem' }}>AK</div>
                   {project.managerName || 'Amit Kumar'}
                 </div>
               </div>

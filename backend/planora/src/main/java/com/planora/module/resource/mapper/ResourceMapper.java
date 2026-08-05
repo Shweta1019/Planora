@@ -20,6 +20,7 @@ public class ResourceMapper {
                 .email(r.getUser() != null ? r.getUser().getEmail() : null)
                 .userRole(r.getUser() != null ? r.getUser().getRole() : null)
                 .department(r.getUser() != null ? r.getUser().getDepartment() : null)
+                .userProfileImage(r.getUser() != null ? r.getUser().getProfileImage() : null)
                 .createdAt(r.getCreatedAt())
                 .updatedAt(r.getUpdatedAt())
                 .build();

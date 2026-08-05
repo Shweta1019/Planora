@@ -39,6 +39,7 @@ export default function DocumentPage() {
   const fileRef  = useRef(null)
   const [tab, setTab]       = useState(0)
   const [search, setSearch] = useState('')
+  const [tempSearch, setTempSearch] = useState('')
   const [projF, setProjF]   = useState('')
   const [typeF, setTypeF]   = useState('')
   const [uploaderF, setUploaderF] = useState('')
@@ -154,7 +155,13 @@ export default function DocumentPage() {
           <div className="search-box">
             <Search size={14} className="search-icon"/>
             <input type="text" placeholder="Search files..." className="form-input" style={{ paddingLeft:34 }}
-              value={search} onChange={e=>setSearch(e.target.value)}/>
+              value={tempSearch} onChange={e=>setTempSearch(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  setSearch(tempSearch)
+                  setPage(1)
+                }
+              }}/>
           </div>
           <select className="form-select" style={{ width:180 }} value={projF} onChange={e=>setProjF(e.target.value)}>
             <option value="">All Projects</option>
@@ -235,7 +242,14 @@ export default function DocumentPage() {
                         <td style={{ fontSize:'0.82rem', color:'var(--text-secondary)' }}>{formatSize(f.fileSize)}</td>
                         <td>
                           {f.uploadedByName
-                            ? <div className="user-cell"><div className="avatar avatar-sm">{f.uploadedByName[0]}</div><span style={{ fontSize:'0.82rem' }}>{f.uploadedByName}</span></div>
+                            ? <div className="user-cell">
+                                {f.uploadedByProfileImage ? (
+                                  <img src={f.uploadedByProfileImage} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                                ) : (
+                                  <div className="avatar avatar-sm">{f.uploadedByName[0]}</div>
+                                )}
+                                <span style={{ fontSize:'0.82rem' }}>{f.uploadedByName}</span>
+                              </div>
                             : <span className="td-muted">—</span>
                           }
                         </td>

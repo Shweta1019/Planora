@@ -15,12 +15,12 @@ export default function ReportsPage() {
     let ext = format;
     if (!ext) {
       const lower = name.toLowerCase();
-      if (lower.includes('status') || lower.includes('budget') || lower.includes('utilization')) ext = 'xlsx';
+      if (lower.includes('status') || lower.includes('budget') || lower.includes('utilization')) ext = 'csv';
       else if (lower.includes('workload')) ext = 'docx';
       else ext = 'pdf';
     } else {
       ext = ext.toLowerCase();
-      if (ext === 'excel') ext = 'xlsx';
+      if (ext === 'excel') ext = 'csv';
       if (ext === 'word') ext = 'docx';
     }
 
@@ -53,7 +53,7 @@ export default function ReportsPage() {
 
   const generatedReports = [
     { id: 1, name: 'Project Summary - May 2024', type: 'Project Summary', project: 'Website Redesign', date: '10 May 2024, 10:30 AM', by: 'Rahul Mehta', format: 'pdf' },
-    { id: 2, name: 'Task Status - May 2024', type: 'Task Status', project: 'Mobile App Development', date: '09 May 2024, 04:15 PM', by: 'Rahul Mehta', format: 'xlsx' },
+    { id: 2, name: 'Task Status - May 2024', type: 'Task Status', project: 'Mobile App Development', date: '09 May 2024, 04:15 PM', by: 'Rahul Mehta', format: 'csv' },
     { id: 3, name: 'Budget Report - Q2 2024', type: 'Budget', project: 'All Projects', date: '08 May 2024, 11:20 AM', by: 'Rahul Mehta', format: 'pdf' },
   ]
 

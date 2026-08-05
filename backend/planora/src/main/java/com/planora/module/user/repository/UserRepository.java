@@ -4,7 +4,10 @@ import com.planora.common.enums.Role;
 import com.planora.common.enums.UserStatus;
 import com.planora.module.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
+
+import com.planora.module.user.dto.response.ManagerStatsResponseDto;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,4 +20,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRole(Role role);
     List<User> findByStatus(UserStatus status);
     List<User> findByRoleAndStatus(Role role, UserStatus status);
+
 }

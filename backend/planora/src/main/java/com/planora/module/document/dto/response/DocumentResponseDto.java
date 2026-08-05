@@ -20,5 +20,6 @@ public class DocumentResponseDto {
     private String taskTitle;
     private Long uploadedById;
     private String uploadedByName;
+    private String uploadedByProfileImage;
     private LocalDateTime createdAt;
 }

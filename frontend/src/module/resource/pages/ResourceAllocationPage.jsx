@@ -4,12 +4,13 @@ import { resourceApi } from '../../../api/resourceApi'
 import { userApi }     from '../../../api/userApi'
 import { projectApi }  from '../../../api/projectApi'
 import { useRole }     from '../../../store/useRole'
+import { useAuthStore } from '../../../store/authStore'
 import {
   Plus, Search, Eye, Pencil, MoreVertical, Trash2, X,
   ShieldOff, Users,
   ChevronLeft, ChevronRight, RotateCcw
 } from 'lucide-react'
-import { initials } from '../../../utils/formatDate'
+import { initials, formatDate } from '../../../utils/formatDate'
 
 // ── Skill helpers ────────────────────────────────────────────────────────────
 const ROLE_SKILLS = {
@@ -77,12 +78,16 @@ function ViewDetailsModal({ user, alloc, isPM, onEdit, onAllocate, onDelete, onC
         <div className="modal-body">
           {/* User card */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '12px 16px', background: 'var(--bg-input)', borderRadius: 10, marginBottom: 20 }}>
-            <div className="avatar avatar-lg" style={{ fontSize: '1rem', width: 52, height: 52, flexShrink: 0 }}>{initials(name)}</div>
+            <img 
+              src={user.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff`} 
+              alt={name} 
+              style={{ width: 52, height: 52, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} 
+            />
             <div>
               <div style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{name}</div>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: 6 }}>{user.email}</div>
               <span style={{ background: '#ede9fe', color: '#7c3aed', borderRadius: 4, padding: '2px 10px', fontSize: '0.72rem', fontWeight: 600 }}>
-                {user.designation || user.role?.replace('_', ' ')}
+                {user.role === 'PROJECT_MANAGER' ? 'Project Manager' : (user.designation || user.role?.replace('_', ' '))}
               </span>
             </div>
           </div>
@@ -93,7 +98,7 @@ function ViewDetailsModal({ user, alloc, isPM, onEdit, onAllocate, onDelete, onC
               { label: 'Skills',           val: skills.join(', ') },
               { label: 'Availability',     val: <span style={{ color: badge.color, fontWeight: 600 }}>{badge.label}</span> },
               { label: 'Current Project',  val: projectNames || '—' },
-              { label: 'Allocation',       val: `${pct}%` },
+              { label: 'Utilization',      val: `${pct}%` },
               { label: 'Role',             val: user.role?.replace('_', ' ') },
               { label: 'Joined On',        val: user.createdAt ? new Date(user.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—' },
             ].map(({ label, val }) => (
@@ -126,7 +131,7 @@ function EditResourceModal({ user, onClose, onSaved }) {
   const qc = useQueryClient()
   const [form, setForm] = useState({
     email: user.email || '',
-    role: user.designation || user.role?.replace('_', ' ') || '',
+    role: user.role === 'PROJECT_MANAGER' ? 'Project Manager' : (user.designation || user.role?.replace('_', ' ') || ''),
     skills: getSkills(user).join(', '),
   })
   const [error, setError] = useState('')
@@ -184,7 +189,22 @@ function EditResourceModal({ user, onClose, onSaved }) {
               </div>
               <div className="form-group">
                 <label className="form-label">Role</label>
-                <input name="role" value={form.role} onChange={change} className="form-input"/>
+                <select name="role" value={form.role} onChange={change} className="form-select" disabled={user.role === 'PROJECT_MANAGER'}>
+                  <option value="">Select Role</option>
+                  <option value="Team Lead">Team Lead</option>
+                  <option value="Senior Developer">Senior Developer</option>
+                  <option value="Software Developer">Software Developer</option>
+                  <option value="Frontend Developer">Frontend Developer</option>
+                  <option value="Backend Developer">Backend Developer</option>
+                  <option value="Full Stack Developer">Full Stack Developer</option>
+                  <option value="QA Engineer">QA Engineer</option>
+                  <option value="UI/UX Designer">UI/UX Designer</option>
+                  <option value="Business Analyst">Business Analyst</option>
+                  <option value="DevOps Engineer">DevOps Engineer</option>
+                  <option value="Database Administrator (DBA)">Database Administrator (DBA)</option>
+                  <option value="IT Support Engineer">IT Support Engineer</option>
+                  <option value="Tester">Tester</option>
+                </select>
               </div>
             </div>
             <div className="form-group" style={{ marginTop: 4 }}>
@@ -213,8 +233,7 @@ function ManageAllocationModal({ user, resource, projects, onClose, onSaved }) {
   const [form, setForm] = useState({
     userId:           user.userId,
     projectId:        resource?.projectId  || '',
-    allocationStatus: resource ? 'Allocated' : 'Unallocated',
-    allocationPercentage: resource?.allocationPercentage || 100,
+    roleInProject:    resource?.roleInProject || 'Team Lead',
     notes:            resource?.notes || '',
   })
   const [charCount, setCharCount] = useState((resource?.notes || '').length)
@@ -223,18 +242,23 @@ function ManageAllocationModal({ user, resource, projects, onClose, onSaved }) {
   // If a resource row already exists → update it (remove then add); otherwise → create a new one
   const mut = useMutation({
     mutationFn: async (data) => {
+      if (resource?.projectId && String(resource.projectId) === String(data.projectId)) {
+        return projectApi.editMember(data.projectId, data.userId, {
+          roleInProject: data.roleInProject,
+          allocationPercentage: 50 // Automatically assigned by backend logic if omitted, sending 50 explicitly.
+        })
+      }
       if (resource?.projectId) {
         try { await projectApi.removeMember(resource.projectId, user.userId) } catch(e){}
       }
       return projectApi.addMember(data.projectId, {
         userId: data.userId,
-        roleInProject: data.allocationStatus,
-        allocationPercentage: data.allocationPercentage
+        roleInProject: data.roleInProject,
+        allocationPercentage: 50
       })
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projects-list'] })
-      // We also dispatch a custom event to force the allocations effect to run
       window.dispatchEvent(new Event('allocations-updated'))
       onSaved()
     },
@@ -253,8 +277,7 @@ function ManageAllocationModal({ user, resource, projects, onClose, onSaved }) {
     mut.mutate({
       userId:               parseInt(form.userId),
       projectId:            parseInt(form.projectId),
-      allocationPercentage: parseInt(form.allocationPercentage) || 100,
-      allocationStatus:     form.allocationStatus,
+      roleInProject:        form.roleInProject,
       notes:                form.notes,
     })
   }
@@ -284,13 +307,24 @@ function ManageAllocationModal({ user, resource, projects, onClose, onSaved }) {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Allocation Status</label>
-                <select name="allocationStatus" value={form.allocationStatus} onChange={change} className="form-select">
-                  <option value="Allocated">Allocated</option>
-                  <option value="Unallocated">Unallocated</option>
-                  <option value="On Leave">On Leave</option>
+                <label className="form-label">Role</label>
+                <select name="roleInProject" value={form.roleInProject} onChange={change} className="form-select">
+                  <option value="Team Lead">Team Lead</option>
+                  <option value="Senior Developer">Senior Developer</option>
+                  <option value="Software Developer">Software Developer</option>
+                  <option value="Frontend Developer">Frontend Developer</option>
+                  <option value="Backend Developer">Backend Developer</option>
+                  <option value="Full Stack Developer">Full Stack Developer</option>
+                  <option value="QA Engineer">QA Engineer</option>
+                  <option value="UI/UX Designer">UI/UX Designer</option>
+                  <option value="Business Analyst">Business Analyst</option>
+                  <option value="DevOps Engineer">DevOps Engineer</option>
+                  <option value="Database Administrator (DBA)">Database Administrator (DBA)</option>
+                  <option value="IT Support Engineer">IT Support Engineer</option>
+                  <option value="Tester">Tester</option>
                 </select>
               </div>
+
             </div>
             <div className="form-group">
               <label className="form-label">Notes (Optional)</label>
@@ -448,14 +482,14 @@ const menuItemStyle = {
 // ── New Allocate Resource Modal (from header button) ─────────────────────────
 function AllocateResourceModal({ users, projects, onClose, onSaved }) {
   const qc = useQueryClient()
-  const [form, setForm] = useState({ userId: '', projectId: '', allocationPercentage: 100, notes: '' })
+  const [form, setForm] = useState({ userId: '', projectId: '', roleInProject: '' })
   const [errors, setErrors] = useState({})
 
   const mut = useMutation({
     mutationFn: data => projectApi.addMember(data.projectId, {
       userId: data.userId,
-      roleInProject: data.notes || 'Allocated',
-      allocationPercentage: data.allocationPercentage
+      roleInProject: data.roleInProject || 'Allocated',
+      allocationPercentage: 50 // automatic 50% for each project
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['projects-list'] })
@@ -470,7 +504,7 @@ function AllocateResourceModal({ users, projects, onClose, onSaved }) {
   function submit(e) {
     e.preventDefault()
     if (!form.userId || !form.projectId) { setErrors({ api: 'Please select user and project' }); return }
-    mut.mutate({ ...form, userId: parseInt(form.userId), projectId: parseInt(form.projectId), allocationPercentage: parseInt(form.allocationPercentage) })
+    mut.mutate({ ...form, userId: parseInt(form.userId), projectId: parseInt(form.projectId) })
   }
 
   return (
@@ -506,17 +540,23 @@ function AllocateResourceModal({ users, projects, onClose, onSaved }) {
               </select>
             </div>
             <div className="form-group">
-              <label className="form-label">Allocation % ({form.allocationPercentage}%)</label>
-              <input name="allocationPercentage" type="range" min="10" max="100" step="10"
-                value={form.allocationPercentage} onChange={change}
-                style={{ width: '100%', accentColor: 'var(--purple)' }}/>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                <span>10%</span><span>50%</span><span>100%</span>
-              </div>
-            </div>
-            <div className="form-group">
-              <label className="form-label">Notes (Optional)</label>
-              <input name="notes" value={form.notes} onChange={change} className="form-input" placeholder="e.g. Lead developer"/>
+              <label className="form-label">Role</label>
+              <select name="roleInProject" value={form.roleInProject} onChange={change} className="form-select">
+                <option value="">Select Role</option>
+                <option value="Team Lead">Team Lead</option>
+                <option value="Senior Developer">Senior Developer</option>
+                <option value="Software Developer">Software Developer</option>
+                <option value="Frontend Developer">Frontend Developer</option>
+                <option value="Backend Developer">Backend Developer</option>
+                <option value="Full Stack Developer">Full Stack Developer</option>
+                <option value="QA Engineer">QA Engineer</option>
+                <option value="UI/UX Designer">UI/UX Designer</option>
+                <option value="Business Analyst">Business Analyst</option>
+                <option value="DevOps Engineer">DevOps Engineer</option>
+                <option value="Database Administrator (DBA)">Database Administrator (DBA)</option>
+                <option value="IT Support Engineer">IT Support Engineer</option>
+                <option value="Tester">Tester</option>
+              </select>
             </div>
           </div>
           <div className="modal-footer">
@@ -536,6 +576,7 @@ function AllocateResourceModal({ users, projects, onClose, onSaved }) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 export default function ResourceAllocationPage() {
   const { isPM, isAdmin, isEmployee } = useRole()
+  const authUser = useAuthStore(s => s.user)
 
   // State
   const [search, setSearch]   = useState('')
@@ -592,17 +633,32 @@ export default function ResourceAllocationPage() {
   // Allocation helpers
   function getUserAlloc(userId) {
     const rows = allocations.filter(x => x.userId === userId)
-    if (!rows.length) return { pct: 0, projectNames: '', avail: 'FULLY_AVAILABLE', resource: null }
-    const pct = Math.min(rows.reduce((s, x) => s + (x.allocationPercentage || 0), 0), 100)
-    const projectNames = rows.map(x => x.projectName || '').filter(Boolean).join(', ')
+    const activeRows = rows.filter(r => {
+      const p = projects.find(proj => String(proj.projectId) === String(r.projectId));
+      return p && p.status !== 'COMPLETED' && p.status !== 'CANCELLED';
+    });
+    if (!activeRows.length) return { pct: 0, projectNames: '', avail: 'FULLY_AVAILABLE', resource: null }
+    
+    let pct = 0;
+    const u = users.find(user => user.userId === userId) || {};
+    if (u.role === 'PROJECT_MANAGER') {
+      if (activeRows.length === 1) pct = 50;
+      else if (activeRows.length >= 2) pct = 100;
+    } else {
+      if (activeRows.length === 1) pct = 33;
+      else if (activeRows.length === 2) pct = 66;
+      else if (activeRows.length >= 3) pct = 100;
+    }
+
+    const projectNames = activeRows.map(x => x.projectName || '').filter(Boolean).join(', ')
     const avail = pct >= 100 ? 'FULLY_ALLOCATED' : pct > 0 ? 'PARTIALLY_AVAILABLE' : 'FULLY_AVAILABLE'
-    return { pct, projectNames, avail, resource: rows[0] }
+    return { pct, projectNames, avail, resource: activeRows[0] }
   }
 
 
 
   // Filter
-  const filtered = users.filter(u => {
+  const filtered = users.filter(u => u.role !== 'ADMIN').filter(u => {
     const name = u.fullName || `${u.firstName || ''} ${u.lastName || ''}`
     const alloc = getUserAlloc(u.userId)
     // search: match name, email, or skills
@@ -611,7 +667,8 @@ export default function ResourceAllocationPage() {
       || getSkills(u).some(s => s.toLowerCase().includes(search.toLowerCase()))
     // project filter: match by projectId stored in allocation rows
     const matchP = !projectF || allocations.some(r => r.userId === u.userId && String(r.projectId) === projectF)
-    const matchR = !roleF || u.role === roleF
+    // role filter matches actual role or designation
+    const matchR = !roleF || u.designation === roleF || u.role === roleF
     const matchA = !availF || alloc.avail === availF
     return matchS && matchP && matchR && matchA
   })
@@ -619,6 +676,8 @@ export default function ResourceAllocationPage() {
   const total = filtered.length
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+  const allowedProjects = isPM ? projects.filter(p => String(p.managerId) === String(authUser?.userId) || p.managerName === authUser?.fullName) : projects;
 
   // ── Employee: Access Restricted ─────────────────────────────────────────
   if (isEmployee) {
@@ -667,7 +726,7 @@ export default function ResourceAllocationPage() {
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Project</span>
             <select className="form-select" style={{ minWidth: 140, height: 38 }} value={projectF} onChange={e => { setProjectF(e.target.value); setPage(1) }}>
               <option value="">All Projects</option>
-              {projects.map(p => <option key={p.projectId} value={String(p.projectId)}>{p.projectName}</option>)}
+              {allowedProjects.map(p => <option key={p.projectId} value={String(p.projectId)}>{p.projectName}</option>)}
             </select>
           </div>
 
@@ -676,9 +735,19 @@ export default function ResourceAllocationPage() {
             <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Role</span>
             <select className="form-select" style={{ minWidth: 130, height: 38 }} value={roleF} onChange={e => { setRoleF(e.target.value); setPage(1) }}>
               <option value="">All Roles</option>
-              <option value="EMPLOYEE">Employee</option>
-              <option value="PROJECT_MANAGER">Project Manager</option>
-              <option value="ADMIN">Admin</option>
+              <option value="Team Lead">Team Lead</option>
+              <option value="Senior Developer">Senior Developer</option>
+              <option value="Software Developer">Software Developer</option>
+              <option value="Frontend Developer">Frontend Developer</option>
+              <option value="Backend Developer">Backend Developer</option>
+              <option value="Full Stack Developer">Full Stack Developer</option>
+              <option value="QA Engineer">QA Engineer</option>
+              <option value="UI/UX Designer">UI/UX Designer</option>
+              <option value="Business Analyst">Business Analyst</option>
+              <option value="DevOps Engineer">DevOps Engineer</option>
+              <option value="Database Administrator (DBA)">Database Administrator (DBA)</option>
+              <option value="IT Support Engineer">IT Support Engineer</option>
+              <option value="Tester">Tester</option>
             </select>
           </div>
 
@@ -742,12 +811,13 @@ export default function ResourceAllocationPage() {
                     <th>Project</th>
                     <th>Availability</th>
                     <th>Utilization</th>
+                    <th>Joined On</th>
                     <th style={{ textAlign: 'center' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.length === 0
-                    ? <tr><td colSpan={6} className="table-empty">No resources found</td></tr>
+                    ? <tr><td colSpan={8} className="table-empty">No resources found</td></tr>
                     : paged.map(u => {
                         const name = u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim()
                         const alloc = getUserAlloc(u.userId)
@@ -758,7 +828,11 @@ export default function ResourceAllocationPage() {
                             {/* Resource column */}
                             <td>
                               <div className="user-cell">
-                                <div className="avatar avatar-md">{initials(name)}</div>
+                                <img 
+                                  src={u.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff`} 
+                                  alt={name} 
+                                  style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} 
+                                />
                                 <div>
                                   <div className="user-name">{name}</div>
                                   <div className="user-email">{u.email}</div>
@@ -769,12 +843,12 @@ export default function ResourceAllocationPage() {
                             {/* Role */}
                             <td>
                               <span style={{
-                                background: getRoleBadge(u.designation || u.role).bg,
-                                color: getRoleBadge(u.designation || u.role).color,
+                                background: getRoleBadge(u.role === 'PROJECT_MANAGER' ? 'PROJECT_MANAGER' : (u.designation || u.role)).bg,
+                                color: getRoleBadge(u.role === 'PROJECT_MANAGER' ? 'PROJECT_MANAGER' : (u.designation || u.role)).color,
                                 borderRadius: 4, padding: '3px 10px',
                                 fontSize: '0.72rem', fontWeight: 600,
                               }}>
-                                {u.designation || u.role?.replace('_', ' ')}
+                                {u.role === 'PROJECT_MANAGER' ? 'Project Manager' : (u.designation || u.role?.replace('_', ' '))}
                               </span>
                             </td>
 
@@ -806,6 +880,11 @@ export default function ResourceAllocationPage() {
                               <div style={{ height: 6, width: 80, background: '#e0e7ff', borderRadius: 3, overflow: 'hidden' }}>
                                 <div style={{ height: '100%', width: `${alloc.pct}%`, background: '#4f46e5', borderRadius: 3, transition: 'width 0.3s ease' }} />
                               </div>
+                            </td>
+
+                            {/* Joined On */}
+                            <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                              {formatDate(u.createdAt)}
                             </td>
 
                             {/* Actions — Eye Button */}
@@ -860,8 +939,8 @@ export default function ResourceAllocationPage() {
       {/* Allocate Resource (header button, PM only) */}
       {showAllocate && isPM && (
         <AllocateResourceModal
-          users={users}
-          projects={projects}
+          users={users.filter(u => u.role !== 'ADMIN')}
+          projects={allowedProjects}
           onClose={() => setShowAllocate(false)}
           onSaved={() => setShowAllocate(false)}
         />
@@ -894,7 +973,7 @@ export default function ResourceAllocationPage() {
         <ManageAllocationModal
           user={allocUser.user}
           resource={allocUser.resource}
-          projects={projects}
+          projects={allowedProjects}
           onClose={() => setAllocUser(null)}
           onSaved={() => setAllocUser(null)}
         />

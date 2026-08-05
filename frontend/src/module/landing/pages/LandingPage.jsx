@@ -24,9 +24,10 @@ import {
 import './LandingPage.css';
 
 const LandingPage = () => {
+
   return (
     <div className="landing-page">
-      <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #f0f0f0', width: '100%' }}>
+      <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #f0f0f0', width: '100%', position: 'fixed', top: 0, left: 0, zIndex: 1000 }}>
         <div className="lp-container">
           {/* Navbar */}
           <nav className="lp-navbar" style={{ borderBottom: 'none' }}>
@@ -35,15 +36,13 @@ const LandingPage = () => {
               Planora
             </Link>
             <div className="lp-nav-links">
+              <a href="#home">Home</a>
+              <a href="#about">About</a>
               <a href="#features">Features</a>
-              <a href="#modules">Modules</a>
-              <a href="#solutions">Solutions</a>
-              <a href="#about">About Us</a>
               <a href="#contact">Contact</a>
             </div>
             <div className="lp-nav-actions">
-              <Link to="/login" className="lp-btn lp-btn-outline">Login</Link>
-              <Link to="/signup" className="lp-btn lp-btn-primary">Get Started</Link>
+              <Link to="/login" className="lp-btn lp-btn-primary">Login</Link>
             </div>
           </nav>
         </div>
@@ -52,22 +51,19 @@ const LandingPage = () => {
       <div className="lp-container">
 
         {/* Hero Section */}
-        <section className="lp-hero">
+        <section className="lp-hero" id="home">
           <div className="lp-hero-content">
             <div className="lp-badge">Project Monitoring & Management System</div>
             <h1 className="lp-hero-title">
               Plan Smarter.<br />Track Better.<br /><span>Deliver Faster.</span>
             </h1>
             <p className="lp-hero-subtitle">
-              Planora helps teams collaborate seamlessly, track progress in real-time, and deliver projects on time, every time.
+              Planora is an enterprise-grade internal platform that empowers your organization to plan projects, monitor progress, allocate resources, and drive delivery — all from a single, unified dashboard.
             </p>
             <div className="lp-hero-actions">
-              <Link to="/signup" className="lp-btn lp-btn-primary">
-                Get Started Free <ArrowRight size={18} />
+              <Link to="/login" className="lp-btn lp-btn-primary">
+                Access Dashboard <ArrowRight size={18} />
               </Link>
-              <a href="#" className="lp-btn lp-btn-outline">
-                <Play size={18} /> View Demo
-              </a>
             </div>
             
             <div className="lp-hero-features">
@@ -116,74 +112,102 @@ const LandingPage = () => {
 
       </div>
       
-      {/* Features Section 1 */}
-      <div style={{backgroundColor: '#fff', borderTop: '1px solid #f8fafc', borderBottom: '1px solid #f8fafc'}}>
+      {/* About Us Section */}
+      <div id="about" style={{backgroundColor: '#fff', borderTop: '1px solid #f8fafc', borderBottom: '1px solid #f8fafc'}}>
         <div className="lp-container">
           <section className="lp-features-list-section">
             <div className="lp-features-image">
-               {/* Projects List Mockup */}
-               <div className="lp-mockup" style={{height: '350px'}}>
-                  <div className="lp-mockup-sidebar">
-                    <div style={{color: 'white', fontWeight: 'bold', fontSize: '20px', marginBottom: '20px'}}>P</div>
-                    <div className="lp-mockup-sidebar-item"></div>
+               {/* Animated Dashboard Mockup */}
+               <div className="lp-animated-dashboard">
+                  <div className="lp-mockup-sidebar" style={{ background: '#111827' }}>
+                    <div style={{color: 'white', fontWeight: 'bold', fontSize: '20px', marginBottom: '20px', background: 'var(--purple)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '8px'}}>P</div>
                     <div className="lp-mockup-sidebar-item" style={{background: 'var(--purple)'}}></div>
                     <div className="lp-mockup-sidebar-item"></div>
+                    <div className="lp-mockup-sidebar-item"></div>
+                    <div className="lp-mockup-sidebar-item"></div>
                   </div>
-                  <div className="lp-mockup-content">
-                    <div style={{fontWeight: 600, fontSize: '18px', marginBottom: '16px'}}>Projects</div>
-                    <div style={{display: 'flex', gap: '10px', marginBottom: '20px'}}>
-                      <div className="lp-mockup-header-search" style={{flex: 1}}></div>
-                      <div style={{width: '100px', height: '32px', background: 'white', border: '1px solid #e5e7eb', borderRadius: '6px'}}></div>
-                      <div style={{width: '100px', height: '32px', background: 'var(--purple)', borderRadius: '6px'}}></div>
+                  <div className="lp-mockup-content" style={{ padding: '16px', gap: '16px' }}>
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <div style={{ flex: 1, background: 'white', borderRadius: '8px', padding: '12px', border: '1px solid #e5e7eb', animation: 'slide-up-fade 0.5s ease-out' }}>
+                        <div style={{ fontSize: '11px', color: '#6b7280' }}>Total Projects</div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold' }}>24</div>
+                      </div>
+                      <div style={{ flex: 1, background: 'white', borderRadius: '8px', padding: '12px', border: '1px solid #e5e7eb', animation: 'slide-up-fade 0.5s ease-out 0.1s both' }}>
+                        <div style={{ fontSize: '11px', color: '#6b7280' }}>In Progress</div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold' }}>12</div>
+                      </div>
+                      <div style={{ flex: 1, background: 'white', borderRadius: '8px', padding: '12px', border: '1px solid #e5e7eb', animation: 'slide-up-fade 0.5s ease-out 0.2s both' }}>
+                        <div style={{ fontSize: '11px', color: '#6b7280' }}>Completed</div>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold' }}>8</div>
+                      </div>
                     </div>
                     
-                    <div style={{flex: 1, background: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px'}}>
-                      <div style={{display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f3f4f6', paddingBottom: '8px'}}>
-                        <div style={{width: '20%', height: '8px', background: '#e5e7eb'}}></div>
-                        <div style={{width: '15%', height: '8px', background: '#e5e7eb'}}></div>
-                        <div style={{width: '10%', height: '8px', background: '#e5e7eb'}}></div>
-                        <div style={{width: '20%', height: '8px', background: '#e5e7eb'}}></div>
-                        <div style={{width: '10%', height: '8px', background: '#e5e7eb'}}></div>
-                      </div>
-                      {[1,2,3,4].map(i => (
-                        <div key={i} style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                          <div style={{width: '20%', height: '10px', background: '#d1d5db', borderRadius: '2px'}}></div>
-                          <div style={{width: '15%', height: '10px', background: '#d1d5db', borderRadius: '2px'}}></div>
-                          <div style={{width: '10%', height: '16px', background: '#dbeafe', borderRadius: '10px'}}></div>
-                          <div style={{width: '20%', height: '6px', background: '#e5e7eb', borderRadius: '3px'}}>
-                            <div style={{width: '70%', height: '100%', background: 'var(--purple)', borderRadius: '3px'}}></div>
-                          </div>
-                          <div style={{width: '10%', height: '10px', background: '#d1d5db', borderRadius: '2px'}}></div>
+                    <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
+                      <div style={{ flex: 1, background: 'white', borderRadius: '8px', padding: '16px', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', animation: 'slide-up-fade 0.5s ease-out 0.3s both' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '16px', width: '100%' }}>Project Progress</div>
+                        <div className="anim-pie-chart">
+                          <div className="anim-pie-inner">75%</div>
                         </div>
-                      ))}
+                      </div>
+                      <div style={{ flex: 1.5, background: 'white', borderRadius: '8px', padding: '16px', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', animation: 'slide-up-fade 0.5s ease-out 0.4s both' }}>
+                        <div style={{ fontSize: '12px', fontWeight: '600', marginBottom: '16px' }}>Tasks Overview</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', flex: 1, paddingBottom: '8px' }}>
+                          <div style={{ width: '12%', background: 'var(--purple-dim)', borderRadius: '4px 4px 0 0' }} className="anim-bar-1"></div>
+                          <div style={{ width: '12%', background: 'var(--purple-dim)', borderRadius: '4px 4px 0 0' }} className="anim-bar-2"></div>
+                          <div style={{ width: '12%', background: 'var(--purple)', borderRadius: '4px 4px 0 0' }} className="anim-bar-3"></div>
+                          <div style={{ width: '12%', background: '#c4b5fd', borderRadius: '4px 4px 0 0' }} className="anim-bar-4"></div>
+                          <div style={{ width: '12%', background: 'var(--purple-dim)', borderRadius: '4px 4px 0 0' }} className="anim-bar-5"></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                </div>
             </div>
-            <div className="lp-features-text">
-              <div className="lp-section-subtitle">Centralized Project Management</div>
-              <h2 className="lp-section-title">Everything you need in one place</h2>
+            <div className="lp-features-text" style={{ paddingRight: '40px' }}>
+              <div className="lp-section-subtitle" style={{ display: 'inline-block', background: 'var(--purple-dim)', padding: '4px 12px', borderRadius: '6px', margin: '0 0 16px 0' }}>About Us</div>
+              <h2 className="lp-section-title" style={{ fontSize: '36px' }}>About Planora<br/><span style={{ color: 'var(--purple)' }}>Built for Enterprise Project Excellence</span></h2>
               <p className="lp-section-desc">
-                From planning to tracking, Planora brings everything together to help your team stay organized and productive.
+                Planora is an organization-wide Project Monitoring &amp; Management System designed for internal teams. Access is managed by the Admin — enabling structured collaboration, transparent progress tracking, and data-driven delivery across all projects.
               </p>
-              <ul className="lp-check-list">
-                <li>
-                  <div className="lp-check-icon"><CheckCircle size={16} /></div>
-                  Create & manage projects effortlessly
-                </li>
-                <li>
-                  <div className="lp-check-icon"><CheckCircle size={16} /></div>
-                  Track tasks and deadlines in real-time
-                </li>
-                <li>
-                  <div className="lp-check-icon"><CheckCircle size={16} /></div>
-                  Allocate resources and manage budgets
-                </li>
-                <li>
-                  <div className="lp-check-icon"><CheckCircle size={16} /></div>
-                  Generate reports and gain insights
-                </li>
-              </ul>
+              
+              <div className="lp-about-grid">
+                <div className="lp-about-item">
+                  <div className="lp-about-icon">
+                    <Users size={18} />
+                  </div>
+                  <div className="lp-about-text">
+                    <h4>Our Mission</h4>
+                    <p>Empower teams with smart tools to manage projects seamlessly.</p>
+                  </div>
+                </div>
+                <div className="lp-about-item">
+                  <div className="lp-about-icon">
+                    <Zap size={18} />
+                  </div>
+                  <div className="lp-about-text">
+                    <h4>Our Vision</h4>
+                    <p>To be the most trusted platform for project management.</p>
+                  </div>
+                </div>
+                <div className="lp-about-item">
+                  <div className="lp-about-icon">
+                    <CheckCircle size={18} />
+                  </div>
+                  <div className="lp-about-text">
+                    <h4>Our Values</h4>
+                    <p>Transparency, collaboration, accountability and improvement.</p>
+                  </div>
+                </div>
+                <div className="lp-about-item">
+                  <div className="lp-about-icon">
+                    <Shield size={18} />
+                  </div>
+                  <div className="lp-about-text">
+                    <h4>Our Commitment</h4>
+                    <p>Building reliable, user-friendly solutions that drive success.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         </div>
@@ -246,58 +270,53 @@ const LandingPage = () => {
           </div>
         </div>
       </section>
-
-      {/* Stats Section */}
-      <div style={{backgroundColor: '#fff'}}>
+      {/* Solutions Ribbon Section */}
+      <div className="lp-solutions-ribbon">
         <div className="lp-container">
-          <section className="lp-stats-section">
-            <div className="lp-stats-grid">
-              <div className="lp-stat-item">
-                <div className="lp-stat-icon"><UserCheck size={28} /></div>
-                <div className="lp-stat-text">
-                  <h4>500+</h4>
-                  <p>Active Users</p>
+          <div className="lp-solutions-ribbon-inner">
+            <div className="lp-ribbon-header">
+              <h2 className="lp-ribbon-title">Built for Every Role in Your Organization</h2>
+              <p className="lp-ribbon-desc">Purpose-driven modules designed around how your team actually works.</p>
+            </div>
+            
+            <div className="lp-ribbon-items">
+              <div className="lp-ribbon-item">
+                <div className="lp-ribbon-icon"><MonitorPlay size={24} /></div>
+                <div className="lp-ribbon-text">
+                  <h3>For Admins</h3>
+                  <p>Full system control &amp; user management</p>
                 </div>
               </div>
-              <div className="lp-stat-item">
-                <div className="lp-stat-icon"><Folder size={28} /></div>
-                <div className="lp-stat-text">
-                  <h4>120+</h4>
-                  <p>Projects Managed</p>
+              <div className="lp-ribbon-item">
+                <div className="lp-ribbon-icon"><CheckSquare size={24} /></div>
+                <div className="lp-ribbon-text">
+                  <h3>For Managers</h3>
+                  <p>Resource, budget &amp; project oversight</p>
                 </div>
               </div>
-              <div className="lp-stat-item">
-                <div className="lp-stat-icon"><PieChart size={28} /></div>
-                <div className="lp-stat-text">
-                  <h4>98%</h4>
-                  <p>On-time Delivery</p>
-                </div>
-              </div>
-              <div className="lp-stat-item">
-                <div className="lp-stat-icon"><Zap size={28} /></div>
-                <div className="lp-stat-text">
-                  <h4>24/7</h4>
-                  <p>Support Available</p>
+              <div className="lp-ribbon-item">
+                <div className="lp-ribbon-icon"><Users size={24} /></div>
+                <div className="lp-ribbon-text">
+                  <h3>For Team Members</h3>
+                  <p>Task tracking &amp; progress updates</p>
                 </div>
               </div>
             </div>
-          </section>
+          </div>
         </div>
       </div>
+
 
       {/* CTA Section */}
       <div style={{backgroundColor: '#fff', overflow: 'hidden'}}>
         <div className="lp-container">
           <section className="lp-cta-section">
-            <h2 className="lp-cta-title">Ready to streamline your project management?</h2>
-            <p className="lp-cta-desc">Join Planora today and experience the smarter way to manage projects.</p>
+            <h2 className="lp-cta-title">Your organization's projects, fully under control.</h2>
+            <p className="lp-cta-desc">Log in to Planora and take command of your projects, resources, budgets, and team — all in one place.</p>
             <div className="lp-cta-actions">
-              <Link to="/signup" className="lp-btn lp-btn-primary">
-                Get Started Free <ArrowRight size={18} />
+              <Link to="/login" className="lp-btn lp-btn-primary">
+                Login to Planora <ArrowRight size={18} />
               </Link>
-              <a href="#" className="lp-btn lp-btn-outline">
-                <Play size={18} /> View Demo
-              </a>
             </div>
             
             {/* Simple CSS plant graphic placeholder */}
@@ -312,7 +331,7 @@ const LandingPage = () => {
       </div>
 
       {/* Footer */}
-      <footer className="lp-footer">
+      <footer className="lp-footer" id="contact">
         <div className="lp-container">
           <div className="lp-footer-grid">
             <div className="lp-footer-brand">
@@ -320,41 +339,16 @@ const LandingPage = () => {
                 <div className="lp-logo-icon">P</div>
                 Planora
               </Link>
-              <p>Planora is a smart Project Monitoring and Management System designed to help teams plan, track and deliver projects efficiently.</p>
-              <div className="lp-social-links">
-                <a href="#"><Facebook size={16} /></a>
-                <a href="#"><Twitter size={16} /></a>
-                <a href="#"><Linkedin size={16} /></a>
-                <a href="#"><Github size={16} /></a>
-              </div>
+              <p>Planora is an internal, organization-wide Project Monitoring &amp; Management System — giving admins, managers, and team members a unified platform to plan, track, and deliver with confidence.</p>
             </div>
             
             <div className="lp-footer-col">
-              <h4>Product</h4>
+              <h4>Quick Links</h4>
               <ul>
-                <li><a href="#">Features</a></li>
-                <li><a href="#">Modules</a></li>
-                <li><a href="#">Solutions</a></li>
-              </ul>
-            </div>
-            
-            <div className="lp-footer-col">
-              <h4>Company</h4>
-              <ul>
-                <li><a href="#">About Us</a></li>
-                <li><a href="#">Contact</a></li>
-                <li><a href="#">Privacy Policy</a></li>
-                <li><a href="#">Terms of Service</a></li>
-              </ul>
-            </div>
-            
-            <div className="lp-footer-col">
-              <h4>Resources</h4>
-              <ul>
-                <li><a href="#">Documentation</a></li>
-                <li><a href="#">Guides</a></li>
-                <li><a href="#">Support</a></li>
-                <li><a href="#">Blog</a></li>
+                <li><a href="#home">Home</a></li>
+                <li><a href="#about">About Us</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#contact">Contact</a></li>
               </ul>
             </div>
             
@@ -376,7 +370,7 @@ const LandingPage = () => {
           </div>
           
           <div className="lp-footer-bottom">
-            © 2024 Planora. All rights reserved.
+            © 2026 Planora. All rights reserved.
           </div>
         </div>
       </footer>

@@ -17,6 +17,6 @@ public interface ExpenseRepository extends JpaRepository<Expense, Long> {
     List<Expense> findBySubmittedByUserId(Long userId);
     List<Expense> findByStatus(ExpenseStatus status);
 
-    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e WHERE e.project.projectId = :projectId AND e.status = 'APPROVED'")
+    @Query("SELECT COALESCE(SUM(e.amount), 0) FROM Expense e WHERE e.project.projectId = :projectId")
     BigDecimal sumApprovedAmountByProject(@Param("projectId") Long projectId);
 }

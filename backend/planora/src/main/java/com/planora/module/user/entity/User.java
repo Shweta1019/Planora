@@ -44,6 +44,7 @@ public class User {
 
     private String designation;
 
+    @Column(columnDefinition = "LONGTEXT")
     private String profileImage;
 
     @Enumerated(EnumType.STRING)
@@ -52,6 +53,10 @@ public class User {
 
     // id of the manager who manages this user (self-referencing, kept as Long to avoid circular JPA)
     private Long managerId;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private int failedLoginAttempts = 0;
 
     @CreationTimestamp
     private LocalDateTime createdAt;

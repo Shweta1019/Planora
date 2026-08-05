@@ -25,6 +25,7 @@ const ACTION_COLOR = {
 
 export default function ActivityLogPage() {
   const [search, setSearch] = useState('')
+  const [tempSearch, setTempSearch] = useState('')
   const [projF,  setProjF]  = useState('')
   const [page,   setPage]   = useState(1)
   const pageSize = 12
@@ -71,7 +72,13 @@ export default function ActivityLogPage() {
           <div className="search-box">
             <Search size={14} className="search-icon"/>
             <input type="text" placeholder="Search activity..." className="form-input" style={{ paddingLeft:34 }}
-              value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}/>
+              value={tempSearch} onChange={e=>setTempSearch(e.target.value)} 
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  setSearch(tempSearch)
+                  setPage(1)
+                }
+              }}/>
           </div>
           <select className="form-select" style={{ width:200 }} value={projF} onChange={e=>setProjF(e.target.value)}>
             <option value="">All Projects</option>
@@ -97,9 +104,13 @@ export default function ActivityLogPage() {
                   alignItems:'flex-start',
                 }}>
                   {/* Avatar */}
-                  <div className="avatar avatar-md" style={{ background:`linear-gradient(135deg, ${entityColor}, ${entityColor}cc)`, flexShrink:0 }}>
-                    {initials(a.userFullName || 'SY')}
-                  </div>
+                  {a.userProfileImage ? (
+                    <img src={a.userProfileImage} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+                  ) : (
+                    <div className="avatar avatar-md" style={{ background:`linear-gradient(135deg, ${entityColor}, ${entityColor}cc)`, flexShrink:0 }}>
+                      {initials(a.userFullName || 'SY')}
+                    </div>
+                  )}
 
                   {/* Content */}
                   <div style={{ flex:1 }}>

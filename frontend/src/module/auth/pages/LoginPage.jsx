@@ -4,12 +4,7 @@ import { useAuthStore } from '../../../store/authStore'
 import { authApi } from '../../../api/authApi'
 import { Mail, Lock, Eye, EyeOff, Loader2, ShieldCheck, Briefcase, User } from 'lucide-react'
 
-/* Role cards shown below the login form */
-const ROLES = [
-  { value: 'ADMIN', label: 'Admin', icon: <ShieldCheck size={17} /> },
-  { value: 'PROJECT_MANAGER', label: 'Project Manager', icon: <Briefcase size={17} /> },
-  { value: 'EMPLOYEE', label: 'Employee', icon: <User size={17} /> },
-]
+
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -19,7 +14,6 @@ export default function LoginPage() {
   const [showPass, setShow] = useState(false)
   const [loading, setLoad] = useState(false)
   const [error, setError] = useState('')
-  const [activeRole, setRole] = useState('EMPLOYEE') // role card selection
 
   // 1. Remember Me - Load saved email on mount
   useEffect(() => {
@@ -37,7 +31,12 @@ export default function LoginPage() {
 
   async function submit(e) {
     e.preventDefault()
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!form.email || !form.password) { setError('Please fill in all fields.'); return }
+    if (!emailRegex.test(form.email)) {
+      setError('Please enter a valid email address.')
+      return
+    }
     setLoad(true)
     try {
       // Only send email + password — backend determines the role from the DB
@@ -52,9 +51,11 @@ export default function LoginPage() {
         fullName: d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim(),
         email: d.email,
         role: d.role,
-      })
+        status: d.status,
+        photoUrl: d.profileImage,
+      }, form.remember)   // ← passes remember flag to store
 
-      // 2. Remember Me - Save or Remove email on successful login
+      // Remember Me — save or clear the email for pre-fill on next visit
       if (form.remember) {
         localStorage.setItem('planora_email', form.email);
       } else {
@@ -64,8 +65,19 @@ export default function LoginPage() {
       // 3. Navigate to Dashboard
       navigate('/dashboard')
     } catch (err) {
-      // 4. Custom Error messages from backend (e.g. "Wrong password")
-      setError(err.response?.data?.message || err.response?.data || 'Invalid email or password.')
+      // If backend returns ACCOUNT_BLOCKED (403) redirect to the blocked page
+      const msg = err.response?.data?.message || err.response?.data || ''
+      if (msg === 'ACCOUNT_BLOCKED' || err.response?.status === 403) {
+        navigate('/blocked', { replace: true })
+        return
+      }
+      // 4. Custom Error messages from backend (e.g. "Wrong user", "Wrong password")
+      if (msg === 'Wrong user') {
+        setError('User does not exist. Please contact admin.')
+      } else {
+        setError(msg || 'Invalid email or password.')
+      }
+
     } finally {
       setLoad(false)
     }
@@ -210,14 +222,7 @@ export default function LoginPage() {
                   />
                   Remember me
                 </label>
-                {/* FIX: Added navigate to Forgot Password button */}
-                <button
-                  type="button"
-                  className="login-forgot"
-                  onClick={() => navigate('/forgot-password')}
-                >
-                  Forgot Password?
-                </button>
+                {/* Forgot Password option hidden as requested */}
               </div>
 
               {/* Sign In button */}
@@ -236,50 +241,14 @@ export default function LoginPage() {
 
             </form>
 
-            {/* OR divider */}
-            <div className="login-or" style={{ margin: '22px 0 16px' }}>
-              <span /><span>Select Your Role</span><span />
-            </div>
 
-            {/* Role Selector Cards */}
-            <div className="role-selector">
-              {ROLES.map(r => (
-                <button
-                  key={r.value}
-                  type="button"
-                  id={`role-${r.value.toLowerCase()}`}
-                  className={`role-card${activeRole === r.value ? ' active' : ''}`}
-                  onClick={() => setRole(r.value)}
-                  aria-pressed={activeRole === r.value}
-                >
-                  <span className="role-card-icon">{r.icon}</span>
-                  <span className="role-card-label">{r.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* YAHAN SE CREATE ACCOUNT KA LOGIC HAI */}
-            {activeRole === 'ADMIN' && (
-              <div style={{ textAlign: 'center', marginTop: '20px' }}>
-                <p style={{ margin: '10px 0', color: '#666' }}>or</p>
-                <div style={{ fontSize: '14px' }}>
-                  Don't have an account?{' '}
-                  <span
-                    style={{ color: '#6a0dad', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'none' }}
-                    onClick={() => navigate('/signup')}
-                  >
-                    Create Account
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
       </div>
 
       {/* Footer */}
-      <p className="login-page-footer">© 2024 Planora. All rights reserved.</p>
+      <p className="login-page-footer">© 2026 Planora. All rights reserved.</p>
 
     </div>
   )

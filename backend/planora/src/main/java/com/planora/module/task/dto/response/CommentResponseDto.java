@@ -14,5 +14,6 @@ public class CommentResponseDto {
     private Long taskId;
     private Long userId;
     private String userFullName;
+    private String userProfileImage;
     private LocalDateTime createdAt;
 }

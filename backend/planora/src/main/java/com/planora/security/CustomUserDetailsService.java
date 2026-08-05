@@ -22,6 +22,10 @@ public class CustomUserDetailsService implements UserDetailsService {
         com.planora.module.user.entity.User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
 
+        if (user.getStatus() != null && (user.getStatus().name().equals("BLOCKED") || user.getStatus().name().equals("INACTIVE") || user.getStatus().name().equals("SUSPENDED"))) {
+            throw new org.springframework.security.authentication.LockedException("ACCOUNT_BLOCKED");
+        }
+
         return new User(
                 user.getEmail(),
                 user.getPassword(),

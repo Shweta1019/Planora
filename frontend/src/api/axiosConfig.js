@@ -18,9 +18,12 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
   res => res,
   err => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && window.location.pathname !== '/login') {
       useAuthStore.getState().logout()
       window.location.href = '/login'
+    } else if (err.response?.status === 403 && err.response?.data?.message === 'ACCOUNT_BLOCKED') {
+      useAuthStore.getState().logout()
+      window.location.href = '/blocked'
     }
     return Promise.reject(err)
   }

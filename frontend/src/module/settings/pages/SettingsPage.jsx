@@ -1,23 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '../../../api/authApi'
+import { userApi } from '../../../api/userApi'
 import { useAuthStore } from '../../../store/authStore'
 import {
   Camera, Mail, Phone, Building, Clock, MapPin,
   Calendar, Activity, Bell, Lock, User, Eye, EyeOff,
-  CheckSquare, MessageSquare
+  CheckSquare, MessageSquare, Users, Trash2, Ban, UserPlus, MoreVertical
 } from 'lucide-react'
 import { formatDate, initials } from '../../../utils/formatDate'
-
-const SETTING_TABS = [
-  { key: 'profile', label: 'Profile Settings', icon: User },
-  { key: 'password', label: 'Change Password', icon: Lock },
-  { key: 'notifications', label: 'Notification Preferences', icon: Bell },
-]
+import { useRole } from '../../../store/useRole'
+import { Link, useNavigate } from 'react-router-dom'
+import DeleteUserModal from '../components/DeleteUserModal'
+import UserFormModal from '../../user/components/UserForm'
 
 export default function SettingsPage() {
   const qc = useQueryClient()
-  const { user: authUser } = useAuthStore()
+  const navigate = useNavigate()
+  const { user: authUser, setPhoto } = useAuthStore()
+  const { isAdmin } = useRole()
+
+  const settingTabs = [
+    { key: 'profile', label: 'Profile Settings', icon: User },
+    { key: 'password', label: 'Change Password', icon: Lock },
+  ]
+  if (isAdmin) {
+    settingTabs.push({ key: 'users', label: 'User Management', icon: Users })
+  }
+
   const [tab, setTab] = useState('profile')
   const [saved, setSaved] = useState('')
   const [profileErr, setProfileErr] = useState('')
@@ -25,12 +35,17 @@ export default function SettingsPage() {
   const [showCurrent, setShowCurrent] = useState(false)
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
-  const [photoUrl, setPhotoUrl] = useState(localStorage.getItem('planora_photo') || '')
+  const [photoUrl, setPhotoUrl] = useState(authUser?.photoUrl || '')
+
+  useEffect(() => {
+    setPhotoUrl(authUser?.photoUrl || '')
+  }, [authUser?.photoUrl])
 
   const { data: profile } = useQuery({
-    queryKey: ['my-profile'],
+    queryKey: ['my-profile', authUser?.userId],
     queryFn: () => authApi.getMe().then(r => r.data?.data || r.data),
     staleTime: 60_000,
+    enabled: !!authUser?.userId,
   })
 
   const me = profile || authUser || {}
@@ -61,6 +76,10 @@ export default function SettingsPage() {
         bio: me.bio || '',
       })
     }
+    if (profile?.profileImage) {
+      setPhotoUrl(profile.profileImage)
+      if (!authUser?.photoUrl) setPhoto(profile.profileImage)
+    }
   }, [profile])
 
   const [pwForm, setPwForm] = useState({
@@ -71,14 +90,14 @@ export default function SettingsPage() {
     mutationFn: (data) => authApi.updateProfile(data),
     onSuccess: (res) => {
       setSaved('Profile saved successfully!')
-      qc.invalidateQueries({ queryKey: ['my-profile'] })
-      
+      qc.invalidateQueries({ queryKey: ['my-profile', authUser?.userId] })
+
       // Update global auth store so UI components like Navbar re-render immediately
       const updatedUser = res.data?.data || res.data
       if (updatedUser) {
         useAuthStore.getState().setUser({ ...authUser, ...updatedUser })
       }
-      
+
       setTimeout(() => setSaved(''), 3000)
     },
   })
@@ -103,10 +122,16 @@ export default function SettingsPage() {
     reader.onload = function (event) {
       const dataUrl = event.target.result
       setPhotoUrl(dataUrl)
-      localStorage.setItem('planora_photo', dataUrl)
-      window.dispatchEvent(new Event('planora_photo_updated'))
+      setPhoto(dataUrl)
+      profileMut.mutate({ profileImage: dataUrl })
     }
     reader.readAsDataURL(file)
+  }
+
+  function handleRemovePhoto() {
+    setPhotoUrl('')
+    setPhoto('')
+    profileMut.mutate({ profileImage: '' })
   }
 
   function submitProfile(e) {
@@ -114,12 +139,12 @@ export default function SettingsPage() {
     if (!form.firstName.trim()) { setProfileErr('Full Name is required'); return }
     if (form.phone && !/^\+?[\d\s-]{9,}$/.test(form.phone)) { setProfileErr('Invalid Phone Number'); return }
     setProfileErr('')
-    
+
     // Split full name into first and last name
     const nameParts = form.firstName.trim().split(' ')
     const fName = nameParts[0]
     const lName = nameParts.slice(1).join(' ')
-    
+
     const payload = { ...form, firstName: fName, lastName: lName }
     profileMut.mutate(payload)
   }
@@ -134,19 +159,66 @@ export default function SettingsPage() {
   // Default notification settings
   const defaultNotifs = [
     { icon: CheckSquare, label: 'Task Assignments', desc: 'Get notified when a task is assigned to you.', on: true },
-    { icon: Calendar, label: 'Task Due Reminders', desc: 'Receive reminders for upcoming task due dates.', on: true },
-    { icon: User, label: 'Project Updates', desc: 'Get notified about project updates and changes.', on: true },
-    { icon: MessageSquare, label: 'Comments', desc: 'Get notified when someone comments on a task.', on: true },
-    { icon: Bell, label: 'General Notifications', desc: 'Receive general important notifications.', on: false },
+    { icon: Calendar, label: 'Task Due Reminders', desc: 'Receive reminders for approaching task deadlines.', on: true },
+    { icon: Building, label: 'Project Updates', desc: 'Get notified about changes to your assigned projects.', on: true },
+    { icon: Activity, label: 'Budget Alerts', desc: 'Receive alerts when project budgets are at risk.', on: false },
+    { icon: MessageSquare, label: 'Mentions & Comments', desc: 'Get notified when you are mentioned in a comment.', on: true },
   ]
 
   // Load saved values from localStorage (if any), otherwise use defaults
-  const savedNotifs = localStorage.getItem('planora_notif_prefs')
+  const savedNotifs = localStorage.getItem(`planora_notif_prefs_${authUser?.userId}`)
   const initialNotifs = savedNotifs
     ? defaultNotifs.map((item, i) => ({ ...item, on: JSON.parse(savedNotifs)[i] }))
     : defaultNotifs
 
   const [notifSettings, setNotifSettings] = useState(initialNotifs)
+
+  useEffect(() => {
+    const saved = localStorage.getItem(`planora_notif_prefs_${authUser?.userId}`)
+    setNotifSettings(saved ? defaultNotifs.map((item, i) => ({ ...item, on: JSON.parse(saved)[i] })) : defaultNotifs)
+  }, [authUser?.userId])
+
+  const [userStatusFilter, setUserStatusFilter] = useState('All')
+  const [openUserMenuId, setOpenUserMenuId] = useState(null)
+  const [userToDelete, setUserToDelete] = useState(null)
+  const [managerAlert, setManagerAlert] = useState(null)
+  const [showAddUser, setShowAddUser] = useState(false)
+
+  const { data: allUsers = [], isLoading: usersLoading } = useQuery({
+    queryKey: ['admin-users-list'],
+    queryFn: () => userApi.getAll().then(r => r.data?.data || r.data || []),
+    enabled: isAdmin && tab === 'users',
+    staleTime: 60_000,
+  })
+
+  const blockUserMut = useMutation({
+    mutationFn: ({ id, status }) => userApi.updateStatus(id, { status }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-users-list'] })
+  })
+
+  const deleteUserMut = useMutation({
+    mutationFn: (id) => userApi.delete(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-users-list'] })
+      setUserToDelete(null)
+    },
+    onError: (err) => {
+      const msg = err.response?.data?.message || 'Failed to delete user'
+      if (msg === 'USER_IS_MANAGER') {
+        setManagerAlert(userToDelete)
+      } else {
+        alert(msg)
+      }
+      setUserToDelete(null)
+    }
+  })
+
+  const filteredUsers = allUsers.filter(u => {
+    if (userStatusFilter === 'All') return true
+    if (userStatusFilter === 'Active') return u.status === 'ACTIVE'
+    if (userStatusFilter === 'Blocked') return u.status === 'INACTIVE' || u.status === 'BLOCKED'
+    return true
+  })
 
   function toggleNotif(index) {
     setNotifSettings(prev =>
@@ -157,9 +229,10 @@ export default function SettingsPage() {
   function saveNotifPrefs() {
     // Save only the on/off values to localStorage
     const onValues = notifSettings.map(item => item.on)
-    localStorage.setItem('planora_notif_prefs', JSON.stringify(onValues))
+    localStorage.setItem(`planora_notif_prefs_${authUser?.userId}`, JSON.stringify(onValues))
     setSaved('Notification preferences saved!')
     setTimeout(() => setSaved(''), 3000)
+    window.dispatchEvent(new Event('planora_notif_prefs_updated'))
   }
 
   const roleLabel = me.role === 'ADMIN' ? 'ADMIN'
@@ -172,7 +245,7 @@ export default function SettingsPage() {
       <div className="page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 className="page-heading">Settings</h1>
-          <p className="page-subheading">Manage your account and preferences.</p>
+
         </div>
       </div>
 
@@ -190,7 +263,7 @@ export default function SettingsPage() {
 
         {/* Left — vertical tab nav */}
         <div className="card settings-nav">
-          {SETTING_TABS.map(t => {
+          {settingTabs.map(t => {
             const Icon = t.icon
             const isActive = tab === t.key
             return (
@@ -255,16 +328,30 @@ export default function SettingsPage() {
                     </label>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', textAlign: 'center' }}>{fullName}</div>
-                  <button
-                    type="button"
-                    onClick={() => document.getElementById('photo-upload')?.click()}
-                    style={{
-                      fontSize: '0.75rem', color: 'var(--purple)', fontWeight: 500,
-                      background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                    }}
-                  >
-                    Change Photo
-                  </button>
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('photo-upload')?.click()}
+                      style={{
+                        fontSize: '0.75rem', color: 'var(--purple)', fontWeight: 500,
+                        background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                      }}
+                    >
+                      Change Photo
+                    </button>
+                    {photoUrl && (
+                      <button
+                        type="button"
+                        onClick={handleRemovePhoto}
+                        style={{
+                          fontSize: '0.75rem', color: 'var(--red)', fontWeight: 500,
+                          background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Form fields */}
@@ -350,10 +437,7 @@ export default function SettingsPage() {
           {/* ── CHANGE PASSWORD TAB ── */}
           {tab === 'password' && (
             <div className="card">
-              <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>Change Password</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 24 }}>
-                Update your password to keep your account secure.
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 20 }}>Change Password</div>
 
               {pwErr && (
                 <div style={{ color: 'var(--red)', background: 'var(--red-dim)', borderRadius: 6, padding: '8px 12px', marginBottom: 16, fontSize: '0.85rem' }}>
@@ -407,9 +491,6 @@ export default function SettingsPage() {
                     </button>
                   </div>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 20 }}>
-                  Password must be at least 8 characters long and include uppercase, lowercase, number and special character.
-                </div>
 
                 {/* Confirm New Password */}
                 <div className="form-group" style={{ marginBottom: 28 }}>
@@ -449,25 +530,22 @@ export default function SettingsPage() {
           {/* ── NOTIFICATION PREFERENCES TAB ── */}
           {tab === 'notifications' && (
             <div className="card">
-              <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>Notification Preferences</div>
-              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 24 }}>
-                Choose the notifications you want to receive.
-              </div>
+              <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 20 }}>Notification Preferences</div>
               {notifSettings.map((s, index) => {
                 const Icon = s.icon
                 return (
-                  <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', borderBottom: '1px solid var(--border-light)' }}>
-                    <div style={{ width: 40, height: 40, background: 'var(--purple-dim)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Icon size={16} color="var(--purple)" />
-                    </div>
+                  <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '16px 0', borderBottom: '1px solid var(--border-light)' }}>
+                    <Icon size={20} color="var(--text-secondary)" />
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{s.label}</div>
-                      <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{s.desc}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)' }}>{s.label}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{s.desc}</div>
                     </div>
-                    <label className="toggle">
-                      <input type="checkbox" checked={s.on} onChange={() => toggleNotif(index)} />
-                      <span className="toggle-slider" />
-                    </label>
+                    <input
+                      type="checkbox"
+                      checked={s.on}
+                      onChange={() => toggleNotif(index)}
+                      style={{ width: 18, height: 18, cursor: 'pointer', accentColor: '#7c3aed' }}
+                    />
                   </div>
                 )
               })}
@@ -477,8 +555,169 @@ export default function SettingsPage() {
             </div>
           )}
 
+          {/* ── USER MANAGEMENT TAB (ADMIN ONLY) ── */}
+          {tab === 'users' && isAdmin && (
+            <div className="card" onClick={() => setOpenUserMenuId(null)}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '1.05rem', marginBottom: 4 }}>User Management</div>
+
+                </div>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <div>
+                    <select className="form-select" style={{ height: 38 }} value={userStatusFilter} onChange={(e) => setUserStatusFilter(e.target.value)}>
+                      <option value="All">View All Users</option>
+                      <option value="Active">Active</option>
+                      <option value="Blocked">Blocked / Inactive</option>
+                    </select>
+                  </div>
+                  <button onClick={() => setShowAddUser(true)} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: 6, textDecoration: 'none' }}>
+                    <UserPlus size={16} /> Add User
+                  </button>
+                </div>
+              </div>
+
+              {usersLoading ? <div className="page-loader" style={{ height: 100 }}><div className="spinner" /></div> : (
+                <div className="table-wrap" style={{ overflow: 'visible' }}>
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Role</th>
+                        <th>Status</th>
+                        <th style={{ textAlign: 'center' }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredUsers.map(u => {
+                        const isMenuOpen = openUserMenuId === u.userId
+                        const isActive = u.status === 'ACTIVE'
+                        return (
+                          <tr key={u.userId}>
+                            <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>{u.fullName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'User'}</td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{u.email}</td>
+                            <td>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: 'var(--purple-dim)', color: 'var(--purple)' }}>
+                                {u.role?.replace('_', ' ') || 'EMPLOYEE'}
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '2px 8px', borderRadius: 4, background: isActive ? '#d1fae5' : '#fee2e2', color: isActive ? '#059669' : '#dc2626' }}>
+                                {isActive ? 'Active' : 'Blocked / Inactive'}
+                              </span>
+                            </td>
+                            <td>
+                              {u.userId !== authUser?.userId && (
+                                <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                                  <button
+                                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setOpenUserMenuId(isMenuOpen ? null : u.userId)
+                                    }}
+                                  >
+                                    <MoreVertical size={16} color="var(--text-secondary)" />
+                                  </button>
+                                  {isMenuOpen && (
+                                    <div
+                                      onClick={(e) => e.stopPropagation()}
+                                      style={{
+                                        position: 'absolute', right: 36, top: 0, zIndex: 50,
+                                        background: 'var(--bg-card)', borderRadius: 8,
+                                        boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                        border: '1px solid var(--border)',
+                                        minWidth: 120, overflow: 'hidden',
+                                      }}
+                                    >
+                                      <button onClick={() => {
+                                        blockUserMut.mutate({ id: u.userId, status: isActive ? 'INACTIVE' : 'ACTIVE' })
+                                        setOpenUserMenuId(null)
+                                      }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-light)' }}>
+                                        {isActive ? 'Block User' : 'Unblock User'}
+                                      </button>
+                                      <button onClick={() => {
+                                        setUserToDelete(u)
+                                        setOpenUserMenuId(null)
+                                      }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc2626' }}>
+                                        Delete User
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                      {filteredUsers.length === 0 && (
+                        <tr>
+                          <td colSpan="5" style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-muted)' }}>No users found</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+
         </div>
       </div>
+
+      {showAddUser && (
+        <UserFormModal
+          user={null}
+          onClose={() => setShowAddUser(false)}
+          onSaved={() => { qc.invalidateQueries({ queryKey: ['admin-users-list'] }); setShowAddUser(false); }}
+        />
+      )}
+
+      {userToDelete && (
+        <DeleteUserModal
+          user={userToDelete}
+          onClose={() => setUserToDelete(null)}
+          onConfirm={() => deleteUserMut.mutate(userToDelete.userId)}
+          isDeleting={deleteUserMut.isPending}
+        />
+      )}
+
+      {/* Manager Reassignment Required Modal */}
+      {managerAlert && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 420, textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ background: '#fee2e2', color: '#ef4444', width: 56, height: 56, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <Ban size={28} />
+            </div>
+            <h3 style={{ marginBottom: 12, fontSize: '1.25rem', color: 'var(--text-main)', fontWeight: '600' }}>
+              Action Required
+            </h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: 28, lineHeight: 1.5, fontSize: '0.95rem' }}>
+              <strong>{managerAlert.fullName || managerAlert.firstName}</strong> is currently managing one or more active projects. You must reassign these projects to a new manager before this account can be deleted.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => setManagerAlert(null)}
+                style={{ flex: 1 }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary"
+                onClick={() => {
+                  const name = managerAlert.fullName || managerAlert.firstName || ''
+                  setManagerAlert(null)
+                  navigate('/projects', { state: { searchManager: name } })
+                }}
+                style={{ flex: 1 }}
+              >
+                Go to Projects
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

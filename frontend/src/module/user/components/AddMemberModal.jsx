@@ -6,9 +6,9 @@ import { X } from 'lucide-react'
 export default function AddMemberModal({ projectId, projectName, allUsers, currentMembers, onClose, onSaved }) {
   const qc = useQueryClient()
   
-  // Filter out users who are already in the project
+  // Filter out users who are already in the project, and only show employees
   const availableUsers = allUsers.filter(
-    u => !currentMembers.some(m => String(m.userId) === String(u.userId))
+    u => u.role === 'EMPLOYEE' && !currentMembers.some(m => String(m.userId) === String(u.userId))
   )
 
   const [form, setForm] = useState({
@@ -72,15 +72,19 @@ export default function AddMemberModal({ projectId, projectName, allUsers, curre
                 value={form.roleInProject} 
                 onChange={e => setForm({ ...form, roleInProject: e.target.value })}
               >
-                <option value="Developer">Developer</option>
+                <option value="Team Lead">Team Lead</option>
+                <option value="Senior Developer">Senior Developer</option>
+                <option value="Software Developer">Software Developer</option>
                 <option value="Frontend Developer">Frontend Developer</option>
                 <option value="Backend Developer">Backend Developer</option>
                 <option value="Full Stack Developer">Full Stack Developer</option>
+                <option value="QA Engineer">QA Engineer</option>
                 <option value="UI/UX Designer">UI/UX Designer</option>
-                <option value="QA Tester">QA Tester</option>
                 <option value="Business Analyst">Business Analyst</option>
-                <option value="Project Coordinator">Project Coordinator</option>
-                <option value="Content Writer">Content Writer</option>
+                <option value="DevOps Engineer">DevOps Engineer</option>
+                <option value="Database Administrator (DBA)">Database Administrator (DBA)</option>
+                <option value="IT Support Engineer">IT Support Engineer</option>
+                <option value="Tester">Tester</option>
               </select>
             </div>
             

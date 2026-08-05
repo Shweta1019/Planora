@@ -25,6 +25,7 @@ public class ProjectMapper {
                 .priority(p.getPriority())
                 .budget(p.getBudget())
                 .spentAmount(p.getSpentAmount())
+                .budgetOverrun(p.isBudgetOverrun())
                 .completionPercentage(p.getCompletionPercentage())
                 .managerId(managerId)
                 .managerName(managerName)
@@ -36,6 +37,7 @@ public class ProjectMapper {
 
     public ProjectSummaryResponseDto toSummaryDto(Project p, Integer totalMembers) {
         String managerName = p.getManager() != null ? p.getManager().getFullName() : null;
+        Long managerId = p.getManager() != null ? p.getManager().getUserId() : null;
 
         return ProjectSummaryResponseDto.builder()
                 .projectId(p.getProjectId())
@@ -44,10 +46,14 @@ public class ProjectMapper {
                 .status(p.getStatus())
                 .priority(p.getPriority())
                 .managerName(managerName)
+                .managerId(managerId)
                 .totalMembers(totalMembers)
                 .completionPercentage(p.getCompletionPercentage())
                 .startDate(p.getStartDate())
                 .endDate(p.getEndDate())
+                .budget(p.getBudget())
+                .budgetOverrun(p.isBudgetOverrun())
+                .createdAt(p.getCreatedAt())
                 .build();
     }
 
@@ -72,6 +78,7 @@ public class ProjectMapper {
                 .allocationPercentage(m.getAllocationPercentage())
                 .assignedDate(m.getAssignedDate())
                 .releaseDate(m.getReleaseDate())
+                .profileImage(m.getUser() != null ? m.getUser().getProfileImage() : null)
                 .build();
     }
 }

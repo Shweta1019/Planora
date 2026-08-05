@@ -12,5 +12,7 @@ public class TaskUpdateRequestDto {
     private String description;
     private Long assignedToId;
     private TaskPriority priority;
+    private LocalDate startDate;
     private LocalDate dueDate;
+    private Integer completionPercentage;
 }

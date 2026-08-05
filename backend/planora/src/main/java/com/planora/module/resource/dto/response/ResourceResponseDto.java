@@ -21,6 +21,7 @@ public class ResourceResponseDto {
     private String email;
     private Role userRole;
     private String department;
+    private String userProfileImage;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

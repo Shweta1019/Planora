@@ -27,7 +27,6 @@ export default function Sidebar({ collapsed, onToggle, notifCount = 0 }) {
         { to: '/users', icon: Users, label: 'Users' },
         { to: '/resources', icon: Boxes, label: 'Resources' },
         { to: '/budgets', icon: Wallet, label: 'Budgets' },
-        { to: '/reports', icon: BarChart2, label: 'Reports' },
         { to: '/notifications', icon: Bell, label: 'Notifications' },
       ]
     } else if (currentRole === ROLES.PM) {
@@ -38,7 +37,6 @@ export default function Sidebar({ collapsed, onToggle, notifCount = 0 }) {
         { to: '/users', icon: Users, label: 'Team Members' },
         { to: '/resources', icon: Boxes, label: 'Resources' },
         { to: '/budgets', icon: Wallet, label: 'Budgets' },
-        { to: '/reports', icon: BarChart2, label: 'Reports' },
         { to: '/notifications', icon: Bell, label: 'Notifications' },
       ]
     } else {

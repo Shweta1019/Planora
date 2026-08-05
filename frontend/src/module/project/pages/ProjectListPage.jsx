@@ -5,7 +5,8 @@ import { useAuthStore } from '../../../store/authStore'
 import { useRole } from '../../../store/useRole'
 import { projectApi } from '../../../api/projectApi'
 import { userApi } from '../../../api/userApi'
-import { Plus, Search, Filter, Eye, Pencil, Trash2, MoreVertical, Folder, CheckCircle, PauseCircle, XCircle, Monitor, Smartphone, Code, BarChart2, Cloud, Box } from 'lucide-react'
+import { taskApi } from '../../../api/taskApi'
+import { Plus, Search, Filter, Eye, Pencil, Trash2, MoreVertical, Folder, CheckCircle, PauseCircle, XCircle, Monitor, Smartphone, Code, BarChart2, Cloud, Box, RotateCcw } from 'lucide-react'
 import { formatDate, statusBadgeClass, statusLabel, progressColor } from '../../../utils/formatDate'
 import ProjectFormModal from '../components/ProjectForm'
 import ProjectDetailsModal from '../components/ProjectDetailsModal'
@@ -41,11 +42,15 @@ const ALL_STATUSES = ['PLANNING', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED']
 /* ═══════════════════════════════════════════════════════════
    ADMIN VIEW - Full Access
    ═══════════════════════════════════════════════════════════ */
-function AdminProjectView({ raw, users, deleteMut, isLoading }) {
+function AdminProjectView({ raw, users, user, deleteMut, isLoading }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const qc = useQueryClient()
-  const [search, setSearch] = useState('')
-  const [tempSearch, setTempSearch] = useState('')
+  
+  const initialSearch = location.state?.searchManager || ''
+  
+  const [search, setSearch] = useState(initialSearch)
+  const [tempSearch, setTempSearch] = useState(initialSearch)
   const [statusFilter, setStatus] = useState('')
   const [openMenu, setOpenMenu] = useState(null)
   const [activeModal, setActiveModal] = useState({ type: null, data: null })
@@ -53,7 +58,9 @@ function AdminProjectView({ raw, users, deleteMut, isLoading }) {
   const pageSize = 10
 
   const filtered = raw.filter(p => {
-    const matchSearch = !search || p.projectName?.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = !search || 
+      p.projectName?.toLowerCase().includes(search.toLowerCase()) ||
+      p.managerName?.toLowerCase().includes(search.toLowerCase())
     const matchStatus = !statusFilter || p.status === statusFilter
     return matchSearch && matchStatus
   })
@@ -133,15 +140,20 @@ function AdminProjectView({ raw, users, deleteMut, isLoading }) {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'visible' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
-          <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>All Projects</h2>
-          <div style={{ display: 'flex', gap: 12 }}>
-            <select className="form-select" value={statusFilter} onChange={e => { setStatus(e.target.value); setPage(1) }} style={{ minWidth: 140, height: 38 }}>
+      <div className="card" style={{ padding: '20px 24px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 20, alignItems: 'flex-end' }}>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 200 }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Status</span>
+            <select className="form-select" value={statusFilter} onChange={e => { setStatus(e.target.value); setPage(1) }} style={{ height: 38 }}>
               <option value="">All Status</option>
               {ALL_STATUSES.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
             </select>
-            <div className="search-box" style={{ width: 220 }}>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, width: 280 }}>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Search</span>
+            <div className="search-box">
               <Search size={14} className="search-icon" style={{ left: 12 }} />
               <input
                 type="text"
@@ -159,6 +171,21 @@ function AdminProjectView({ raw, users, deleteMut, isLoading }) {
               />
             </div>
           </div>
+
+          <button 
+            className="btn btn-outline" 
+            onClick={() => { setStatus(''); setSearch(''); setTempSearch(''); setPage(1); }}
+            style={{ height: 38, whiteSpace: 'nowrap', color: '#7c3aed', borderColor: '#7c3aed' }}
+            title="Clear Filters"
+          >
+            <RotateCcw size={13} style={{ marginRight: 6 }} /> Clear Filters
+          </button>
+        </div>
+      </div>
+
+      <div className="card" style={{ padding: 0, overflow: 'visible' }}>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>All Projects</h2>
         </div>
         {isLoading ? <div className="page-loader"><div className="spinner" /></div> : (
           <>
@@ -183,7 +210,10 @@ function AdminProjectView({ raw, users, deleteMut, isLoading }) {
                       return (
                         <tr key={p.projectId}>
                           <td>
-                            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{p.projectName}</div>
+                            <div style={{ fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              {p.projectName}
+                              {p.budgetOverrun && <span style={{ fontSize: '0.7rem', background: '#fee2e2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Budget Overrun">⚠️ Overrun</span>}
+                            </div>
                           </td>
                           <td>
                             <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{p.managerName || '—'}</span>
@@ -221,10 +251,11 @@ function AdminProjectView({ raw, users, deleteMut, isLoading }) {
                                   <button onClick={() => { setActiveModal({ type: 'status', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                                     Change Status
                                   </button>
-
-                                  <button onClick={() => { setActiveModal({ type: 'delete', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc2626' }}>
-                                    Delete
-                                  </button>
+                                  {(p.status === 'COMPLETED' || p.status === 'CANCELLED') && (
+                                    <button onClick={() => { setActiveModal({ type: 'delete', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc2626' }}>
+                                      Delete
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -250,8 +281,8 @@ function AdminProjectView({ raw, users, deleteMut, isLoading }) {
         )}
       </div>
 
-      {activeModal.type === 'view' && <ProjectDetailsModal project={activeModal.data} onClose={() => setActiveModal({ type: null, data: null })} />}
-      {activeModal.type === 'edit' && <ProjectFormModal project={activeModal.data} users={users} onSaved={() => { qc.invalidateQueries({ queryKey: ['projects-list'] }); setActiveModal({ type: null, data: null }) }} onClose={() => setActiveModal({ type: null, data: null })} />}
+      {activeModal.type === 'view' && <ProjectDetailsModal project={activeModal.data} users={users} currentUser={user} onClose={() => setActiveModal({ type: null, data: null })} />}
+      {activeModal.type === 'edit' && <ProjectFormModal project={activeModal.data} users={users} currentUser={user} onSaved={() => { qc.invalidateQueries({ queryKey: ['projects-list'] }); setActiveModal({ type: null, data: null }) }} onClose={() => setActiveModal({ type: null, data: null })} />}
       {activeModal.type === 'status' && <ProjectStatusModal project={activeModal.data} onClose={() => setActiveModal({ type: null, data: null })} />}
       {activeModal.type === 'report' && <ProjectReportModal project={activeModal.data} onClose={() => setActiveModal({ type: null, data: null })} />}
       {activeModal.type === 'delete' && <ProjectDeleteModal project={activeModal.data} isPending={deleteMut.isPending} onConfirm={() => { deleteMut.mutate(activeModal.data.projectId); setActiveModal({ type: null, data: null }) }} onClose={() => setActiveModal({ type: null, data: null })} />}
@@ -262,7 +293,7 @@ function AdminProjectView({ raw, users, deleteMut, isLoading }) {
 /* ═══════════════════════════════════════════════════════════
    MANAGER VIEW - Own Projects Only
    ═══════════════════════════════════════════════════════════ */
-function ManagerProjectView({ raw, users, user, isLoading }) {
+function ManagerProjectView({ raw, users, user, memberQueries, isLoading }) {
   const navigate = useNavigate()
   const location = useLocation()
   const qc = useQueryClient()
@@ -274,8 +305,13 @@ function ManagerProjectView({ raw, users, user, isLoading }) {
   const [page, setPage] = useState(1)
   const pageSize = 10
 
-  // PM only sees projects they manage
-  const myProjects = raw.filter(p => p.managerName === user.fullName)
+  // PM sees projects they manage OR are a member of
+  const myProjects = raw.filter((p, index) => {
+    const isManager = String(p.managerId) === String(user.userId) || p.managerName === user.fullName
+    const projectMembers = memberQueries[index]?.data || []
+    const isMember = projectMembers.some(m => String(m.userId) === String(user.userId))
+    return isManager || isMember
+  })
 
   const filtered = myProjects.filter(p => {
     const matchSearch = !search || p.projectName?.toLowerCase().includes(search.toLowerCase())
@@ -325,7 +361,7 @@ function ManagerProjectView({ raw, users, user, isLoading }) {
                   {paged.length === 0
                     ? <tr><td colSpan={7} className="table-empty">No projects found</td></tr>
                     : paged.map((p, idx) => {
-                      const pct = p.completionPercentage || 0
+                      const pct = (p.status === 'COMPLETED' || p.status === 'Completed') ? 100 : (p.completionPercentage || 0)
                       const iconInfo = getProjectIconInfo(p.projectName, idx)
                       const badge = pmStatusBadge(p.status)
                       return (
@@ -335,7 +371,10 @@ function ManagerProjectView({ raw, users, user, isLoading }) {
                               <div style={{ width: 40, height: 40, borderRadius: 8, background: iconInfo.bg, color: iconInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 {iconInfo.icon}
                               </div>
-                              <div style={{ fontWeight: 600, fontSize: '0.85rem' }}>{p.projectName}</div>
+                              <div style={{ fontWeight: 600, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {p.projectName}
+                                {p.budgetOverrun && <span style={{ fontSize: '0.7rem', background: '#fee2e2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Budget Overrun">⚠️ Overrun</span>}
+                              </div>
                             </div>
                           </td>
                           <td>
@@ -381,14 +420,11 @@ function ManagerProjectView({ raw, users, user, isLoading }) {
                                   <button onClick={() => { setActiveModal({ type: 'view', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                                     View Details
                                   </button>
+                                  <button onClick={() => { setActiveModal({ type: 'view', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                                    Manage Team
+                                  </button>
                                   <button onClick={() => { setActiveModal({ type: 'edit', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                                     Edit
-                                  </button>
-                                  <button onClick={() => { setActiveModal({ type: 'status', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-                                    Change Status
-                                  </button>
-                                  <button onClick={() => { setActiveModal({ type: 'report', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-                                    Download Report
                                   </button>
                                 </div>
                               )}
@@ -415,10 +451,22 @@ function ManagerProjectView({ raw, users, user, isLoading }) {
         )}
       </div>
 
-      {activeModal.type === 'view' && <ProjectDetailsModal project={activeModal.data} onClose={() => setActiveModal({ type: null, data: null })} />}
-      {activeModal.type === 'edit' && <ProjectFormModal project={activeModal.data} users={users} onSaved={() => { qc.invalidateQueries({ queryKey: ['projects-list'] }); setActiveModal({ type: null, data: null }) }} onClose={() => setActiveModal({ type: null, data: null })} />}
+      {activeModal.type === 'view' && <ProjectDetailsModal project={activeModal.data} users={users} currentUser={user} onClose={() => setActiveModal({ type: null, data: null })} />}
+      {activeModal.type === 'edit' && <ProjectFormModal project={activeModal.data} users={users} currentUser={user} onSaved={() => { qc.invalidateQueries({ queryKey: ['projects-list'] }); setActiveModal({ type: null, data: null }) }} onClose={() => setActiveModal({ type: null, data: null })} />}
       {activeModal.type === 'status' && <ProjectStatusModal project={activeModal.data} onClose={() => setActiveModal({ type: null, data: null })} />}
       {activeModal.type === 'report' && <ProjectReportModal project={activeModal.data} onClose={() => setActiveModal({ type: null, data: null })} />}
+      {activeModal.type === 'delete' && (
+        <ProjectDeleteModal 
+          project={activeModal.data} 
+          isPending={deleteMut.isPending}
+          onClose={() => setActiveModal({ type: null, data: null })} 
+          onConfirm={() => {
+            deleteMut.mutate(activeModal.data.projectId, {
+              onSuccess: () => setActiveModal({ type: null, data: null })
+            });
+          }} 
+        />
+      )}
     </div>
   )
 }
@@ -436,15 +484,25 @@ function EmployeeProjectView({ raw, user, memberQueries, isLoading }) {
   const [page, setPage] = useState(1)
   const pageSize = 10
 
-  // Combine raw projects with memberQuery data to filter only projects the employee belongs to
+  const { data: myTasks = [], isLoading: tLoading } = useQuery({
+    queryKey: ['employee-tasks-projectlist', user?.userId],
+    queryFn: () => taskApi.getByUser(user.userId).then(r => r.data?.data || r.data || []),
+    staleTime: 60_000,
+  })
+
+  const myProjectIdsFromTasks = new Set(myTasks.filter(t => t.projectId).map(t => String(t.projectId)))
+
+  // Combine raw projects with memberQuery data and task assignments
   const myProjects = raw.map((p, idx) => {
     const memQuery = memberQueries[idx]
-    if (!memQuery || !memQuery.data) return null
+    if (!memQuery) return null
 
-    const myMemberRecord = memQuery.data.find(m => String(m.userId) === String(user.userId))
-    if (!myMemberRecord) return null
+    const myMemberRecord = memQuery.data?.find(m => String(m.userId) === String(user.userId))
+    const hasTasks = myProjectIdsFromTasks.has(String(p.projectId))
 
-    return { ...p, myRole: myMemberRecord.roleInProject || 'Team Member' }
+    if (!myMemberRecord && !hasTasks) return null
+
+    return { ...p, myRole: myMemberRecord?.roleInProject || 'Task Assignee' }
   }).filter(Boolean)
 
   const filtered = myProjects.filter(p => {
@@ -456,14 +514,13 @@ function EmployeeProjectView({ raw, user, memberQueries, isLoading }) {
   const pages = Math.max(1, Math.ceil(total / pageSize))
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize)
 
-  const isDataLoading = isLoading || memberQueries.some(q => q.isLoading)
+  const isDataLoading = isLoading || tLoading || memberQueries.some(q => q.isLoading)
 
   return (
     <div onClick={() => setOpenMenu(null)}>
       <div className="page-header" style={{ marginBottom: 20 }}>
         <div>
           <h1 className="page-heading">My Projects</h1>
-          <p className="page-subheading">Projects you are part of.</p>
         </div>
       </div>
 
@@ -480,13 +537,15 @@ function EmployeeProjectView({ raw, user, memberQueries, isLoading }) {
                     <th>Status</th>
                     <th>Start Date</th>
                     <th>End Date</th>
+                    <th>Progress</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paged.length === 0
-                    ? <tr><td colSpan={7} className="table-empty">No projects found</td></tr>
+                    ? <tr><td colSpan={8} className="table-empty">No projects found</td></tr>
                     : paged.map((p, idx) => {
+                      const pct = (p.status === 'COMPLETED' || p.status === 'Completed') ? 100 : (p.completionPercentage || 0)
                       const iconInfo = getProjectIconInfo(p.projectName, idx)
                       return (
                         <tr key={p.projectId}>
@@ -495,7 +554,10 @@ function EmployeeProjectView({ raw, user, memberQueries, isLoading }) {
                               <div style={{ width: 36, height: 36, borderRadius: 8, background: iconInfo.bg, color: iconInfo.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                 {iconInfo.icon}
                               </div>
-                              <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{p.projectName}</div>
+                              <div style={{ fontWeight: 600, fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {p.projectName}
+                                {p.budgetOverrun && <span style={{ fontSize: '0.7rem', background: '#fee2e2', color: '#dc2626', padding: '2px 6px', borderRadius: 4, display: 'inline-flex', alignItems: 'center', gap: 4 }} title="Budget Overrun">⚠️ Overrun</span>}
+                              </div>
                             </div>
                           </td>
                           <td>
@@ -514,6 +576,14 @@ function EmployeeProjectView({ raw, user, memberQueries, isLoading }) {
                           <td><span className={`badge ${statusBadgeClass(p.status)}`}>{statusLabel(p.status)}</span></td>
                           <td style={{ fontSize: '0.82rem' }}>{formatDate(p.startDate) || '—'}</td>
                           <td style={{ fontSize: '0.82rem' }}>{formatDate(p.endDate) || '—'}</td>
+                          <td>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 90 }}>
+                              <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)' }}>{pct}%</span>
+                              <div style={{ height: 6, background: '#f1f5f9', borderRadius: 3, width: '100%' }}>
+                                <div style={{ height: 6, background: '#5b21b6', borderRadius: 3, width: `${pct}%` }} />
+                              </div>
+                            </div>
+                          </td>
                           <td>
                             <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
                               <button
@@ -537,6 +607,11 @@ function EmployeeProjectView({ raw, user, memberQueries, isLoading }) {
                                   <button onClick={() => { setActiveModal({ type: 'view', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                                     View Details
                                   </button>
+                                  {p.myRole === 'Project Manager' && (
+                                    <button onClick={() => { setActiveModal({ type: 'view', data: p }); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+                                      Manage Team
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -562,7 +637,7 @@ function EmployeeProjectView({ raw, user, memberQueries, isLoading }) {
         )}
       </div>
 
-      {activeModal.type === 'view' && <ProjectDetailsModal project={activeModal.data} onClose={() => setActiveModal({ type: null, data: null })} />}
+      {activeModal.type === 'view' && <ProjectDetailsModal project={activeModal.data} users={[]} currentUser={user} onClose={() => setActiveModal({ type: null, data: null })} />}
     </div>
   )
 }
@@ -590,9 +665,9 @@ export default function ProjectListPage() {
     staleTime: 60_000,
   })
 
-  // 3. For Employees: fetch members for each project to filter only their projects
+  // 3. For Employees and PMs: fetch members for each project to filter only their projects
   const memberQueries = useQueries({
-    queries: isEmployee ? raw.map(p => ({
+    queries: (isEmployee || isPM) ? raw.map(p => ({
       queryKey: ['project-members', p.projectId],
       queryFn: () => projectApi.getMembers(p.projectId).then(r => r.data?.data || []),
       staleTime: 60_000,
@@ -602,16 +677,18 @@ export default function ProjectListPage() {
   // 4. Admin Delete Mutation
   const deleteMut = useMutation({
     mutationFn: (id) => projectApi.delete(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects-list'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects-list'] });
+    },
   })
 
   // Render the appropriate isolated component based on Role
   if (isAdmin) {
-    return <AdminProjectView raw={raw} users={users} deleteMut={deleteMut} isLoading={isLoading} />
+    return <AdminProjectView raw={raw} users={users} user={user} deleteMut={deleteMut} isLoading={isLoading} />
   }
 
   if (isPM) {
-    return <ManagerProjectView raw={raw} users={users} user={user} isLoading={isLoading} />
+    return <ManagerProjectView raw={raw} users={users} user={user} memberQueries={memberQueries} isLoading={isLoading} />
   }
 
   if (isEmployee) {

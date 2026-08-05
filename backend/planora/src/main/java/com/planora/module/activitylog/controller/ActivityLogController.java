@@ -13,11 +13,12 @@ import java.util.List;
 @RestController
 @RequestMapping("/activity-logs")
 @RequiredArgsConstructor
-@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+@PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'EMPLOYEE')")
 public class ActivityLogController {
 
     private final ActivityLogService activityLogService;
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
     @GetMapping
     public ResponseEntity<ApiResponse<List<ActivityLogResponseDto>>> getRecent() {
         return ResponseEntity.ok(ApiResponse.success("Recent activity", activityLogService.getRecentActivity()));

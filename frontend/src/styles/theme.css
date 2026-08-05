@@ -1241,3 +1241,40 @@
     overflow-y: visible;
   }
 }
+
+/* ── Blocked User / Read-Only Mode ───────────────────────── */
+.blocked-user-mode .page-content button:not(.tab-btn):not(.btn-nav):not(.pagination-btn),
+.blocked-user-mode .page-content input:not([type="search"]),
+.blocked-user-mode .page-content select,
+.blocked-user-mode .page-content textarea,
+.blocked-user-mode .page-content .action-icon {
+  pointer-events: none !important;
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+/* Allow navigation elements explicitly if needed */
+.blocked-user-mode .page-content .pagination button,
+.blocked-user-mode .page-content .tabs button {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+
+/* Allow closing modals */
+.blocked-user-mode .page-content .modal-overlay button.btn-outline,
+.blocked-user-mode .page-content .modal-overlay button.btn-ghost {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+
+/* Allow view details and dropdown toggles */
+.blocked-user-mode .page-content button.action-btn.view,
+.blocked-user-mode .page-content button:has(svg.lucide-more-vertical),
+.blocked-user-mode .page-content button:has(svg.lucide-more-horizontal),
+.blocked-user-mode .page-content button:has(svg.lucide-eye),
+.blocked-user-mode .page-content div[style*="z-index: 50"] > button:first-child {
+  pointer-events: auto !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}

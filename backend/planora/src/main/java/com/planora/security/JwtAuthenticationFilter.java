@@ -51,6 +51,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     SecurityContextHolder.getContext().setAuthentication(auth);
                 }
             }
+        } catch (org.springframework.security.authentication.LockedException e) {
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"success\": false, \"message\": \"ACCOUNT_BLOCKED\"}");
+            return;
         } catch (Exception ignored) {
             // invalid token — just skip, security will block unauthorized access
         }

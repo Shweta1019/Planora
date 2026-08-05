@@ -4,7 +4,7 @@ import { formatDate, statusBadgeClass, statusLabel, priorityBadgeClass, progress
 export default function TaskDetailsModal({ task, onClose }) {
   if (!task) return null
 
-  const pct = task.completionPercentage || 0
+  const pct = task.status === 'COMPLETED' ? 100 : (task.status === 'IN_REVIEW' ? (task.completionPercentage || 75) : (task.status === 'IN_PROGRESS' ? (task.completionPercentage || 50) : (task.completionPercentage || 0)))
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>

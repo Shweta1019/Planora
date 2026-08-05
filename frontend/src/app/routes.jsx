@@ -24,6 +24,7 @@ const ActivityPage = lazy(() => import('../module/activity/pages/ActivityLogPage
 const SettingsPage       = lazy(() => import('../module/settings/pages/SettingsPage'))
 const ResetPasswordPage  = lazy(() => import('../module/auth/pages/ResetPasswordPage'))
 const NotFoundPage       = lazy(() => import('../module/auth/pages/NotFoundPage'))
+const BlockedPage        = lazy(() => import('../module/auth/pages/BlockedPage'))
 
 function PageLoader() {
   return (
@@ -52,11 +53,15 @@ export default function AppRoutes() {
         </Route>
 
         {/* ── Protected routes — must be logged in ── */}
+        <Route path="/blocked" element={<BlockedPage />} />
+        
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardLayout />}>
 
             {/* All roles */}
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/projects" element={<ProjectListPage />} />
+            <Route path="/projects/:id" element={<ProjectDetailsPage />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/files" element={<FilesPage />} />
             <Route path="/notifications"   element={<NotificationsPage />} />
@@ -65,11 +70,8 @@ export default function AppRoutes() {
 
             {/* Admin + Project Manager */}
             <Route element={<RoleGuard allowed={['ADMIN', 'PROJECT_MANAGER']} />}>
-              <Route path="/projects" element={<ProjectListPage />} />
-              <Route path="/projects/:id" element={<ProjectDetailsPage />} />
               <Route path="/resources" element={<ResourcePage />} />
               <Route path="/budgets" element={<BudgetsPage />} />
-              <Route path="/reports" element={<ReportsPage />} />
               <Route path="/users" element={<UsersPage />} />
             </Route>
 

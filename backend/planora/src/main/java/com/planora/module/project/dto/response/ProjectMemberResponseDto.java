@@ -16,11 +16,13 @@ public class ProjectMemberResponseDto {
     private String projectName;
     private Long userId;
     private String fullName;
+
     private String email;
     private Role role;
     private UserStatus status;
     private String roleInProject;
     private Integer allocationPercentage;
+    private String profileImage;
     private LocalDate assignedDate;
     private LocalDate releaseDate;
 }

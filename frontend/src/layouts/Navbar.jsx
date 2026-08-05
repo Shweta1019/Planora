@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
-import { Search, Bell, ChevronDown, LogOut, Settings, Menu } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, Settings, Menu } from 'lucide-react'
 import { initials } from '../utils/formatDate'
 
 // maps route paths to page titles
@@ -24,16 +24,8 @@ export default function Navbar({ collapsed, onMenuToggle, notifCount = 0 }) {
   const location   = useLocation()
   const { user, logout } = useAuthStore()
   const [dropOpen, setDropOpen] = useState(false)
-  const [photoUrl, setPhotoUrl] = useState(localStorage.getItem('planora_photo') || '')
+  const photoUrl = user?.photoUrl || ''
 
-  useEffect(() => {
-    function handlePhotoUpdate() {
-      setPhotoUrl(localStorage.getItem('planora_photo') || '')
-    }
-    window.addEventListener('planora_photo_updated', handlePhotoUpdate)
-    return () => window.removeEventListener('planora_photo_updated', handlePhotoUpdate)
-  }, [])
-  const [searchQuery, setSearchQuery] = useState('')
   const dropRef = useRef(null)
 
   const pageTitle = Object.entries(routeTitles).find(([k]) =>
@@ -56,37 +48,12 @@ export default function Navbar({ collapsed, onMenuToggle, notifCount = 0 }) {
     navigate('/login')
   }
 
-  function executeSearch() {
-    if (searchQuery.trim()) {
-      navigate(`${location.pathname}?q=${encodeURIComponent(searchQuery.trim())}`)
-    }
-  }
-
-  function handleSearch(e) {
-    if (e.key === 'Enter') {
-      executeSearch()
-    }
-  }
-
   return (
     <header className={`navbar${collapsed ? ' collapsed' : ''}`}>
       <div className="navbar-left">
         <button className="navbar-menu-btn" onClick={onMenuToggle}>
           <Menu size={20} />
         </button>
-        <div className="navbar-search">
-          <button className="navbar-search-icon" onClick={executeSearch} title="Search">
-            <Search size={15} />
-          </button>
-          <input
-            type="text"
-            placeholder="Search something..."
-            className="navbar-search-input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleSearch}
-          />
-        </div>
       </div>
 
       <div className="navbar-right">

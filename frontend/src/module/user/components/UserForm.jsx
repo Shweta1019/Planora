@@ -35,11 +35,36 @@ export default function UserFormModal({ user, onClose, onSaved }) {
   function submit(e) {
     e.preventDefault()
     const errs = {}
-    if (!form.firstName.trim()) errs.firstName = 'First name required'
-    if (!form.lastName.trim())  errs.lastName  = 'Last name required'
-    if (!form.email.trim())     errs.email     = 'Email required'
-    if (!isEdit && !form.password) errs.password = 'Password required'
-    if (!isEdit && form.password && form.password.length < 6) errs.password = 'Min 6 characters'
+    
+    if (!form.firstName.trim()) {
+      errs.firstName = 'First name required'
+    } else if (form.firstName.trim().length < 2) {
+      errs.firstName = 'Min 2 characters'
+    }
+
+    if (!form.lastName.trim()) {
+      errs.lastName = 'Last name required'
+    } else if (form.lastName.trim().length < 2) {
+      errs.lastName = 'Min 2 characters'
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!form.email.trim()) {
+      errs.email = 'Email required'
+    } else if (!emailRegex.test(form.email)) {
+      errs.email = 'Invalid email address'
+    }
+
+    if (!isEdit && !form.password) {
+      errs.password = 'Password required'
+    } else if (!isEdit && form.password && form.password.length < 6) {
+      errs.password = 'Min 6 characters'
+    }
+
+    if (form.phoneNo && !/^[1-9]\d{9}$/.test(form.phoneNo)) {
+      errs.phoneNo = 'Must be exactly 10 digits and not start with 0'
+    }
+
     if (Object.keys(errs).length) { setErrors(errs); return }
 
     const data = { ...form }
@@ -54,7 +79,7 @@ export default function UserFormModal({ user, onClose, onSaved }) {
           <h2 className="modal-title">{isEdit ? 'Edit User' : 'Add New User'}</h2>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18}/></button>
         </div>
-        <form onSubmit={submit}>
+        <form onSubmit={submit} autoComplete="off">
           <div className="modal-body">
             {errors.api && <div style={{ color:'var(--red)', fontSize:'0.85rem', marginBottom:12, padding:'8px 12px', background:'var(--red-dim)', borderRadius:6 }}>{errors.api}</div>}
             <div className="grid-2">
@@ -71,13 +96,13 @@ export default function UserFormModal({ user, onClose, onSaved }) {
             </div>
             <div className="form-group">
               <label className="form-label">Email *</label>
-              <input name="email" type="email" value={form.email} onChange={change} className="form-input" placeholder="email@planora.com" />
+              <input name="email" type="email" value={form.email} onChange={change} className="form-input" placeholder="email@planora.com" autoComplete="off" />
               {errors.email && <span className="form-error">{errors.email}</span>}
             </div>
             {!isEdit && (
               <div className="form-group">
                 <label className="form-label">Password *</label>
-                <input name="password" type="password" value={form.password} onChange={change} className="form-input" placeholder="Min 6 characters" />
+                <input name="password" type="password" value={form.password} onChange={change} className="form-input" placeholder="Min 6 characters" autoComplete="new-password" />
                 {errors.password && <span className="form-error">{errors.password}</span>}
               </div>
             )}
@@ -92,7 +117,8 @@ export default function UserFormModal({ user, onClose, onSaved }) {
               </div>
               <div className="form-group">
                 <label className="form-label">Phone</label>
-                <input name="phoneNo" value={form.phoneNo} onChange={change} className="form-input" placeholder="+91 XXXXX XXXXX" />
+                <input name="phoneNo" value={form.phoneNo} onChange={change} className="form-input" placeholder="XXXXXXXXXX" />
+                {errors.phoneNo && <span className="form-error">{errors.phoneNo}</span>}
               </div>
             </div>
             <div className="grid-2">
@@ -101,26 +127,47 @@ export default function UserFormModal({ user, onClose, onSaved }) {
                 <select name="department" value={form.department} onChange={change} className="form-select">
                   <option value="">Select Department</option>
                   <option value="Engineering">Engineering</option>
-                  <option value="Design">Design</option>
-                  <option value="Product">Product</option>
-                  <option value="Operations">Operations</option>
-                  <option value="HR">HR</option>
+                  <option value="Software Development">Software Development</option>
+                  <option value="Quality Assurance (QA)">Quality Assurance (QA)</option>
+                  <option value="UI/UX Design">UI/UX Design</option>
+                  <option value="DevOps">DevOps</option>
+                  <option value="Business Analysis">Business Analysis</option>
+                  <option value="Project Management">Project Management</option>
+                  <option value="Database Administration">Database Administration</option>
+                  <option value="IT Support">IT Support</option>
+                  <option value="Human Resources (HR)">Human Resources (HR)</option>
+                  <option value="Finance">Finance</option>
+                  <option value="Marketing">Marketing</option>
                   <option value="Sales">Sales</option>
+                  <option value="Customer Support">Customer Support</option>
+                  <option value="Operations">Operations</option>
+                  <option value="Administration">Administration</option>
+                  <option value="Research & Development (R&D)">Research & Development (R&D)</option>
+                  <option value="Cybersecurity">Cybersecurity</option>
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Designation</label>
                 <select name="designation" value={form.designation} onChange={change} className="form-select">
                   <option value="">Select Designation</option>
-                  <option value="Frontend Developer">Frontend Developer</option>
-                  <option value="Backend Developer">Backend Developer</option>
-                  <option value="Full Stack Developer">Full Stack Developer</option>
-                  <option value="UI/UX Designer">UI/UX Designer</option>
-                  <option value="QA Tester">QA Tester</option>
-                  <option value="Business Analyst">Business Analyst</option>
-                  <option value="DevOps Engineer">DevOps Engineer</option>
+                  <option value="Software Engineer">Software Engineer</option>
+                  <option value="Senior Software Engineer">Senior Software Engineer</option>
+                  <option value="Team Lead">Team Lead</option>
                   <option value="Project Manager">Project Manager</option>
-                  <option value="Admin">Admin</option>
+                  <option value="Business Analyst">Business Analyst</option>
+                  <option value="QA Engineer">QA Engineer</option>
+                  <option value="UI/UX Designer">UI/UX Designer</option>
+                  <option value="DevOps Engineer">DevOps Engineer</option>
+                  <option value="Database Administrator">Database Administrator</option>
+                  <option value="IT Support Engineer">IT Support Engineer</option>
+                  <option value="HR Executive">HR Executive</option>
+                  <option value="Finance Executive">Finance Executive</option>
+                  <option value="Marketing Executive">Marketing Executive</option>
+                  <option value="Sales Executive">Sales Executive</option>
+                  <option value="Customer Support Executive">Customer Support Executive</option>
+                  <option value="Operations Executive">Operations Executive</option>
+                  <option value="Cybersecurity Analyst">Cybersecurity Analyst</option>
+                  <option value="Intern">Intern</option>
                 </select>
               </div>
             </div>

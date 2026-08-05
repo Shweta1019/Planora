@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Users, User, UsersRound, FileText, CheckSquare,
   Clock, Calendar, Wallet, CheckCircle2, AlertCircle
@@ -18,6 +19,7 @@ const COLORS = {
 }
 
 export default function DashboardAdmin({ projects = [], users = [], activities = [], user }) {
+  const navigate = useNavigate()
 
   const stats = useMemo(() => {
     const totalUsers = users.length
@@ -64,16 +66,24 @@ export default function DashboardAdmin({ projects = [], users = [], activities =
   }, [users])
 
   const monthlyData = useMemo(() => {
-    // Mock monthly project progress data
-    return [
-      { name: 'Jan', value: 65 },
-      { name: 'Feb', value: 70 },
-      { name: 'Mar', value: 50 },
-      { name: 'Apr', value: 60 },
-      { name: 'May', value: 80 },
-      { name: 'Jun', value: 90 },
-    ]
-  }, [])
+    const data = []
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    const today = new Date()
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1)
+      const monthName = months[d.getMonth()]
+      const count = projects.filter(p => {
+        if (!p.createdAt) return false
+        const pDate = new Date(p.createdAt)
+        return pDate.getMonth() === d.getMonth() && pDate.getFullYear() === d.getFullYear()
+      }).length
+      data.push({ name: monthName, value: count })
+    }
+    return data
+  }, [projects])
+
+  const recentUsers = useMemo(() => [...users].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 4), [users])
+  const recentProjects = useMemo(() => [...projects].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 4), [projects])
 
   return (
     <div className="dashboard-layout">
@@ -85,14 +95,14 @@ export default function DashboardAdmin({ projects = [], users = [], activities =
       </div>
 
       <div className="stat-cards" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        <AdminStatCard icon={Users} color="#f3e8ff" iconColor="#a855f7" title="Total Users" value={stats.totalUsers} subtext="↑ 12% this month" />
-        <AdminStatCard icon={User} color="#e0f2fe" iconColor="#3b82f6" title="Project Managers" value={stats.projectManagers} subtext="↑ 8% this month" />
-        <AdminStatCard icon={UsersRound} color="#dcfce7" iconColor="#22c55e" title="Employees" value={stats.employees} subtext="↑ 15% this month" />
-        <AdminStatCard icon={FileText} color="#fef9c3" iconColor="#eab308" title="Total Projects" value={stats.totalProjects} subtext="↑ 6% this month" />
-        <AdminStatCard icon={CheckSquare} color="#dcfce7" iconColor="#22c55e" title="Active Projects" value={stats.activeProjects} subtext={stats.totalProjects ? Math.round((stats.activeProjects / stats.totalProjects) * 100) + '%' : '0%'} />
-        <AdminStatCard icon={CheckCircle2} color="#dcfce7" iconColor="#22c55e" title="Completed Projects" value={stats.completedProjects} subtext={stats.totalProjects ? Math.round((stats.completedProjects / stats.totalProjects) * 100) + '%' : '0%'} />
-        <AdminStatCard icon={AlertCircle} color="#fee2e2" iconColor="#ef4444" title="Overdue Projects" value={stats.overdueProjects} subtext={stats.totalProjects ? Math.round((stats.overdueProjects / stats.totalProjects) * 100) + '%' : '0%'} />
-        <AdminStatCard icon={Wallet} color="#f3e8ff" iconColor="#a855f7" title="Total Budget" value={formatINR(stats.totalBudget)} subtext="100%" />
+        <AdminStatCard icon={Users} color="#f3e8ff" iconColor="#a855f7" title="Total Users" value={stats.totalUsers} onClick={() => navigate('/users')} />
+        <AdminStatCard icon={User} color="#e0f2fe" iconColor="#3b82f6" title="Project Managers" value={stats.projectManagers} onClick={() => navigate('/users')} />
+        <AdminStatCard icon={UsersRound} color="#dcfce7" iconColor="#22c55e" title="Employees" value={stats.employees} onClick={() => navigate('/users')} />
+        <AdminStatCard icon={FileText} color="#fef9c3" iconColor="#eab308" title="Total Projects" value={stats.totalProjects} onClick={() => navigate('/projects')} />
+        <AdminStatCard icon={CheckSquare} color="#dcfce7" iconColor="#22c55e" title="Active Projects" value={stats.activeProjects} subtext={stats.totalProjects ? Math.round((stats.activeProjects / stats.totalProjects) * 100) + '%' : '0%'} onClick={() => navigate('/projects')} />
+        <AdminStatCard icon={CheckCircle2} color="#dcfce7" iconColor="#22c55e" title="Completed Projects" value={stats.completedProjects} subtext={stats.totalProjects ? Math.round((stats.completedProjects / stats.totalProjects) * 100) + '%' : '0%'} onClick={() => navigate('/projects')} />
+        <AdminStatCard icon={AlertCircle} color="#fee2e2" iconColor="#ef4444" title="Overdue Projects" value={stats.overdueProjects} subtext={stats.totalProjects ? Math.round((stats.overdueProjects / stats.totalProjects) * 100) + '%' : '0%'} onClick={() => navigate('/projects')} />
+        <AdminStatCard icon={Wallet} color="#f3e8ff" iconColor="#a855f7" title="Total Budget" value={formatINR(stats.totalBudget)} onClick={() => navigate('/projects')} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.2fr 1.5fr', gap: 16, marginTop: 24 }}>
@@ -119,10 +129,10 @@ export default function DashboardAdmin({ projects = [], users = [], activities =
         <div className="card" style={{ padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Recent Users</div>
-            <a href="#" style={{ color: COLORS.purple, fontSize: '0.8rem', textDecoration: 'none', fontWeight: 500 }}>View All</a>
+            <span style={{ color: COLORS.purple, fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 }} onClick={() => navigate('/users')}>View All</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {users.slice(0, 4).map((u, i) => (
+            {recentUsers.map((u, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <img src={u.profileImage || `https://ui-avatars.com/api/?name=${u.firstName}+${u.lastName}&background=random`} alt="" style={{ width: 32, height: 32, borderRadius: '50%' }} />
@@ -137,25 +147,25 @@ export default function DashboardAdmin({ projects = [], users = [], activities =
           </div>
         </div>
 
-        <ListCard title="Recent Projects" items={projects.slice(0, 4)} type="project" />
-        <ListCard title="Projects Near Deadline" items={projects.filter(p => p.endDate && p.status !== 'COMPLETED').sort((a, b) => new Date(a.endDate) - new Date(b.endDate)).slice(0, 4)} type="near_deadline" />
-        <ListCard title="Budget Overrun Projects" items={projects.filter(p => p.budget && p.totalBudget && p.budget < p.totalBudget).slice(0, 4)} type="overrun" />
+        <ListCard title="Recent Projects" items={recentProjects} type="project" onViewAll={() => navigate('/projects')} />
+        <ListCard title="Projects Near Deadline" items={projects.filter(p => p.endDate && p.status !== 'COMPLETED').sort((a, b) => new Date(a.endDate) - new Date(b.endDate)).slice(0, 4)} type="near_deadline" onViewAll={() => navigate('/projects')} />
+        <ListCard title="Budget Overrun Projects" items={projects.filter(p => p.budgetOverrun || (p.budget > 0 && p.spentAmount > p.budget)).slice(0, 4)} type="overrun" onViewAll={() => navigate('/projects')} />
       </div>
     </div>
   )
 }
 
-function AdminStatCard({ icon: Icon, color, iconColor, title, value, subtext }) {
-  const isUp = subtext?.includes('↑')
+function AdminStatCard({ icon: Icon, color, iconColor, title, value, subtext, onClick }) {
+  const isUp = subtext && String(subtext).includes('↑')
   return (
-    <div className="card" style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16 }}>
+    <div className="card" onClick={onClick} style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 16, cursor: onClick ? 'pointer' : 'default', height: '100%' }}>
       <div style={{ background: color, color: iconColor, width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         <Icon size={24} strokeWidth={1.5} />
       </div>
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center', flex: 1 }}>
         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
         <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.2 }}>{value}</div>
-        <div style={{ fontSize: '0.75rem', color: isUp ? '#10b981' : 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ fontSize: '0.75rem', color: isUp ? '#10b981' : 'var(--text-muted)', marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, minHeight: 18 }}>
           {subtext}
         </div>
       </div>
@@ -199,28 +209,36 @@ function ChartCard({ title, data }) {
   )
 }
 
-function ListCard({ title, items, type }) {
+function ListCard({ title, items, type, onViewAll }) {
   return (
     <div className="card" style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{title}</div>
-        <a href="#" style={{ color: COLORS.purple, fontSize: '0.8rem', textDecoration: 'none', fontWeight: 500 }}>View All</a>
+        {onViewAll && <span style={{ color: COLORS.purple, fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 }} onClick={onViewAll}>View All</span>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {items.length === 0 ? <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No data available.</div> : null}
         {items.map((item, i) => {
-          if (type === 'project') return (
+          if (type === 'project') {
+            const pct = (item.status === 'COMPLETED' || item.status === 'Completed') ? 100 : (item.completionPercentage || 0);
+            return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ background: '#f3e8ff', color: '#a855f7', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <FileText size={16} />
               </div>
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.projectName}</div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(item.createdAt)?.slice(0, 6) || '1 May'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Created {formatDate(item.createdAt)?.slice(0, 6) || 'N/A'}</div>
               </div>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(item.createdAt)?.slice(0, 6) || '2 May'}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 100 }}>
+                <div style={{ height: 6, flex: 1, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: COLORS.purple, borderRadius: 4 }} />
+                </div>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{pct}%</span>
+              </div>
             </div>
-          )
+            )
+          }
           if (type === 'near_deadline') {
             const today = new Date()
             const end = new Date(item.endDate)
@@ -234,12 +252,14 @@ function ListCard({ title, items, type }) {
                 <div style={{ flex: 1, overflow: 'hidden' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.projectName}</div>
                 </div>
-                <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 500 }}>Due in {days} days</span>
+                <span style={{ fontSize: '0.7rem', color: diff < 0 ? '#ef4444' : '#eab308', fontWeight: 500 }}>
+                  {diff < 0 ? `Overdue by ${Math.abs(diff)} days` : `Due in ${days} days`}
+                </span>
               </div>
             )
           }
           if (type === 'overrun') {
-            const over = Math.floor(Math.random() * 15) + 1 // mock
+            const over = item.budget ? Math.round(((item.spentAmount - item.budget) / item.budget) * 100) : 0
             return (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ background: '#fee2e2', color: '#ef4444', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

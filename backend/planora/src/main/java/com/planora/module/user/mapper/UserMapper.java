@@ -36,6 +36,8 @@ public class UserMapper {
                 .status(user.getStatus())
                 .department(user.getDepartment())
                 .designation(user.getDesignation())
+                .profileImage(user.getProfileImage())
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 }

@@ -5,7 +5,9 @@ import com.planora.module.user.dto.request.UserCreateRequestDto;
 import com.planora.module.user.dto.request.UserStatusUpdateRequestDto;
 import com.planora.module.user.dto.request.UserUpdateRequestDto;
 import com.planora.module.user.dto.response.UserResponseDto;
+import com.planora.module.user.dto.response.UserResponseDto;
 import com.planora.module.user.dto.response.UserSummaryResponseDto;
+import com.planora.module.user.dto.response.ManagerStatsResponseDto;
 import com.planora.module.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -51,15 +53,21 @@ public class UserController {
     }
 
     @GetMapping("/summary")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'EMPLOYEE')")
     public ResponseEntity<ApiResponse<List<UserSummaryResponseDto>>> getUserSummaries() {
         return ResponseEntity.ok(ApiResponse.success("User summaries fetched", userService.getAllUsers()));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER', 'EMPLOYEE')")
     public ResponseEntity<ApiResponse<List<UserSummaryResponseDto>>> getAllUsers() {
         return ResponseEntity.ok(ApiResponse.success("Users fetched", userService.getAllUsers()));
+    }
+
+    @GetMapping("/manager-stats")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<List<ManagerStatsResponseDto>>> getManagerStats() {
+        return ResponseEntity.ok(ApiResponse.success("Manager stats fetched", userService.getManagerStats()));
     }
 
     @DeleteMapping("/{userId}")

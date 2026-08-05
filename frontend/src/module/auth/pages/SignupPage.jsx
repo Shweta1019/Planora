@@ -57,6 +57,13 @@ export default function SignupPage() {
     if (!form.fullName.trim() || !form.email || !form.password || !form.confirmPassword) {
       setError('Please fill in all required fields.'); return
     }
+    
+    // Basic email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(form.email)) {
+      setError('Please enter a valid email address (e.g., user@example.com).'); return
+    }
+
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match.'); return
     }
@@ -378,7 +385,7 @@ export default function SignupPage() {
       </div>
 
       {/* Footer */}
-      <p className="login-page-footer">© 2024 Planora. All rights reserved.</p>
+      <p className="login-page-footer">© 2026 Planora. All rights reserved.</p>
 
     </div>
   )

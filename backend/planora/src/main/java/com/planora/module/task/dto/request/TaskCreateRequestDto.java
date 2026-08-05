@@ -20,5 +20,10 @@ public class TaskCreateRequestDto {
 
     private Long assignedToId;
     private TaskPriority priority;
+
+    @NotNull(message = "Start date is required")
+    private LocalDate startDate;
+
     private LocalDate dueDate;
+    private Integer completionPercentage;
 }

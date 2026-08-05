@@ -52,9 +52,9 @@ export default function AllocateModal({ resource, users=[], projects=[], onClose
               <label className="form-label">Team Member *</label>
               <select name="userId" value={form.userId} onChange={change} className="form-select">
                 <option value="">Select member</option>
-                {users.map(u=>(
+                {users.filter(u => u.role === 'EMPLOYEE').map(u=>(
                   <option key={u.userId} value={u.userId}>
-                    {u.fullName||`${u.firstName} ${u.lastName}`}
+                    {u.fullName||`${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email}
                   </option>
                 ))}
               </select>

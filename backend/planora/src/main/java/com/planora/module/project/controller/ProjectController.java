@@ -37,7 +37,7 @@ public class ProjectController {
     }
 
     @PutMapping("/{projectId}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProjectResponseDto>> updateStatus(@PathVariable Long projectId,
                                                                          @Valid @RequestBody ProjectStatusUpdateRequestDto dto) {
         return ResponseEntity.ok(ApiResponse.success("Status updated", projectService.updateProjectStatus(projectId, dto)));
@@ -71,6 +71,14 @@ public class ProjectController {
     @GetMapping("/{projectId}/members")
     public ResponseEntity<ApiResponse<List<ProjectMemberResponseDto>>> getMembers(@PathVariable Long projectId) {
         return ResponseEntity.ok(ApiResponse.success("Members fetched", projectService.getProjectMembers(projectId)));
+    }
+
+    @PutMapping("/{projectId}/members/{userId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PROJECT_MANAGER')")
+    public ResponseEntity<ApiResponse<ProjectMemberResponseDto>> updateMemberRole(@PathVariable Long projectId,
+                                                                                   @PathVariable Long userId,
+                                                                                   @Valid @RequestBody ProjectMemberUpdateRequestDto dto) {
+        return ResponseEntity.ok(ApiResponse.success("Member updated", projectService.updateProjectMember(projectId, userId, dto)));
     }
 
     @DeleteMapping("/{projectId}/members/{userId}")

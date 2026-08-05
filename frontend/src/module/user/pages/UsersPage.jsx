@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '../../../store/authStore'
 import { useRole } from '../../../store/useRole'
 import { userApi } from '../../../api/userApi'
 import { projectApi } from '../../../api/projectApi'
-import { Plus, Search, RotateCcw, Eye, Pencil, Trash2, Users, UserCheck, Clock, UserX, MoreVertical, Folder } from 'lucide-react'
+import { Plus, Search, RotateCcw, Eye, Pencil, Trash2, Users, UserCheck, Clock, UserX, MoreVertical, Folder, Briefcase, User, ChevronLeft, ChevronRight } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { formatDate, initials } from '../../../utils/formatDate'
 import UserFormModal from '../components/UserForm'
 import AddMemberModal from '../components/AddMemberModal'
+import EditMemberModal from '../components/EditMemberModal'
+import DeleteUserModal from '../../settings/components/DeleteUserModal'
 
 function AdminUsersView() {
   const qc = useQueryClient()
@@ -16,16 +19,25 @@ function AdminUsersView() {
   const [roleF, setRoleF] = useState('')
   const [statusF, setStatusF] = useState('')
   const [deptF, setDeptF] = useState('')
+  const [activeTab, setActiveTab] = useState('ALL_USERS')
   const [showForm, setForm] = useState(false)
   const [editing, setEditing] = useState(null)
   const [openMenu, setOpenMenu] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const [page, setPage] = useState(1)
   const pageSize = 8
 
-  const { data: raw = [], isLoading } = useQuery({
+  const { data: rawData = [], isLoading } = useQuery({
     queryKey: ['users-list'],
     queryFn: () => userApi.getAll().then(r => r.data?.data || r.data || []),
     staleTime: 30_000,
+  })
+  const raw = rawData.filter(u => u.role !== 'ADMIN')
+
+  const { data: managerStats = [] } = useQuery({
+    queryKey: ['manager-stats'],
+    queryFn: () => userApi.getManagerStats().then(r => r.data?.data || r.data || []),
+    staleTime: 60_000,
   })
 
   const deleteMut = useMutation({
@@ -53,10 +65,15 @@ function AdminUsersView() {
   const activeCount = raw.filter(u => (u.status || 'ACTIVE') === 'ACTIVE').length
   const inactiveCount = raw.filter(u => u.status === 'INACTIVE').length
   const blockedCount = raw.filter(u => u.status === 'BLOCKED').length
+  
+  const pmCount = raw.filter(u => u.role === 'PROJECT_MANAGER').length
+  const empCount = raw.filter(u => u.role === 'EMPLOYEE').length
 
   const activePct = Math.round((activeCount / total) * 100)
   const inactivePct = Math.round((inactiveCount / total) * 100)
   const blockedPct = Math.round((blockedCount / total) * 100)
+  const pmPct = Math.round((pmCount / total) * 100)
+  const empPct = Math.round((empCount / total) * 100)
 
   // Unique departments for filter
   const departments = [...new Set(raw.map(u => u.department).filter(Boolean))]
@@ -82,12 +99,12 @@ function AdminUsersView() {
     return `U-${num.padStart(4, '0')}`
   }
 
-  function handleDelete(id, name) {
-    if (String(id) === String(currentUserId)) {
+  function handleDelete(u) {
+    if (String(u.userId) === String(currentUserId)) {
       alert('You cannot delete your own account.')
       return
     }
-    if (window.confirm(`Delete user "${name}"? This action cannot be undone.`)) deleteMut.mutate(id)
+    setDeleteTarget(u)
   }
 
   const resetFilters = () => {
@@ -96,16 +113,45 @@ function AdminUsersView() {
 
   return (
     <div onClick={() => setOpenMenu(null)}>
-      <div className="page-header" style={{ marginBottom: 20 }}>
+      <div className="page-header" style={{ marginBottom: 12 }}>
         <div>
           <h1 className="page-heading">Users</h1>
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
-        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', gap: 24, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
+        <button
+          style={{
+            background: 'none', border: 'none', padding: '0 0 12px 0', cursor: 'pointer',
+            fontSize: '1rem', fontWeight: 600, color: activeTab === 'ALL_USERS' ? '#4f46e5' : 'var(--text-secondary)',
+            borderBottom: activeTab === 'ALL_USERS' ? '2px solid #4f46e5' : '2px solid transparent',
+            marginBottom: '-1px'
+          }}
+          onClick={() => setActiveTab('ALL_USERS')}
+        >
+          All Users ({total})
+        </button>
+        {managerStats.length > 0 && (
+          <button
+            style={{
+              background: 'none', border: 'none', padding: '0 0 12px 0', cursor: 'pointer',
+              fontSize: '1rem', fontWeight: 600, color: activeTab === 'MANAGER_STATS' ? '#4f46e5' : 'var(--text-secondary)',
+              borderBottom: activeTab === 'MANAGER_STATS' ? '2px solid #4f46e5' : '2px solid transparent',
+              marginBottom: '-1px'
+            }}
+            onClick={() => setActiveTab('MANAGER_STATS')}
+          >
+            Manager Statistics
+          </button>
+        )}
+      </div>
+
+      {activeTab === 'ALL_USERS' && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer' }} onClick={resetFilters}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Users size={20} />
             </div>
             <div>
@@ -113,12 +159,12 @@ function AdminUsersView() {
               <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{raw.length}</div>
             </div>
           </div>
-          <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#7c3aed', cursor: 'pointer', marginTop: 'auto' }} onClick={resetFilters}>View all users</div>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#7c3aed', marginTop: 'auto' }}>View all users →</div>
         </div>
 
-        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer' }} onClick={() => { resetFilters(); setStatusF('ACTIVE'); }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#dcfce7', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#dcfce7', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <UserCheck size={20} />
             </div>
             <div>
@@ -126,17 +172,12 @@ function AdminUsersView() {
               <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{activeCount}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{activePct}% of total users</span>
-            <div style={{ height: 4, flex: 1, background: '#f1f5f9', borderRadius: 2 }}>
-              <div style={{ height: 4, width: `${activePct}%`, background: '#10b981', borderRadius: 2 }} />
-            </div>
-          </div>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#7c3aed', marginTop: 'auto' }}>View active users →</div>
         </div>
 
-        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer' }} onClick={() => { resetFilters(); setStatusF('INACTIVE'); }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#ffedd5', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#ffedd5', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Clock size={20} />
             </div>
             <div>
@@ -144,34 +185,117 @@ function AdminUsersView() {
               <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{inactiveCount}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{inactivePct}% of total users</span>
-            <div style={{ height: 4, flex: 1, background: '#f1f5f9', borderRadius: 2 }}>
-              <div style={{ height: 4, width: `${inactivePct}%`, background: '#f59e0b', borderRadius: 2 }} />
-            </div>
-          </div>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#7c3aed', marginTop: 'auto' }}>View inactive users →</div>
         </div>
 
-        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer' }} onClick={() => { resetFilters(); setRoleF('PROJECT_MANAGER'); }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UserX size={20} />
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#e0e7ff', color: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Briefcase size={20} />
             </div>
             <div>
-              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Blocked Users</div>
-              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{blockedCount}</div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Project Managers</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{pmCount}</div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 'auto' }}>
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{blockedPct}% of total users</span>
-            <div style={{ height: 4, flex: 1, background: '#f1f5f9', borderRadius: 2 }}>
-              <div style={{ height: 4, width: `${blockedPct}%`, background: '#ef4444', borderRadius: 2 }} />
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#7c3aed', marginTop: 'auto' }}>View managers →</div>
+        </div>
+
+        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer' }} onClick={() => { resetFilters(); setRoleF('EMPLOYEE'); }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: '50%', background: '#dbeafe', color: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <User size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Employees</div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{empCount}</div>
+            </div>
+          </div>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#7c3aed', marginTop: 'auto' }}>View employees →</div>
+        </div>
+        </div>
+      </>
+      )}
+
+      {activeTab === 'MANAGER_STATS' && managerStats.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 24, marginBottom: 24 }}>
+          {/* Left Side: Table */}
+          <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+              <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, color: 'var(--text-primary)' }}>Project Manager Statistics</h2>
+            </div>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Project Manager Name</th>
+                    <th>Department</th>
+                    <th style={{ textAlign: 'right' }}>Employees Managed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {managerStats.map((stat, idx) => (
+                    <tr key={idx}>
+                      <td>
+                        <div className="user-cell">
+                          <img 
+                            src={stat.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(stat.managerName)}&background=8b5cf6&color=fff`} 
+                            alt={stat.managerName} 
+                            style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} 
+                          />
+                          <div className="user-name" style={{ fontWeight: 600, fontSize: '0.85rem' }}>{stat.managerName}</div>
+                        </div>
+                      </td>
+                      <td style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{stat.department || 'N/A'}</td>
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                          <span style={{ padding: '4px 10px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600, background: '#f5f3ff', color: '#7c3aed' }}>
+                            {stat.employeeCount} {stat.employeeCount === 1 ? 'Employee' : 'Employees'}
+                          </span>
+                          {stat.employeeNames && stat.employeeNames.length > 0 && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', maxWidth: 200, textAlign: 'right', lineHeight: 1.4 }}>
+                              {stat.employeeNames.join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Right Side: Chart */}
+          <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column' }}>
+            <h2 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, marginBottom: 20, color: 'var(--text-primary)' }}>Workload Distribution</h2>
+            <div style={{ flex: 1, minHeight: 250, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={managerStats} layout="vertical" margin={{ top: 5, right: 30, left: 10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
+                  <XAxis type="number" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis dataKey="managerName" type="category" stroke="#64748b" fontSize={12} tickLine={false} axisLine={false} width={100} />
+                  <Tooltip 
+                    cursor={{ fill: '#f8fafc' }} 
+                    contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}
+                    formatter={(value) => [`${value} Employees`, 'Managed']}
+                  />
+                  <Bar dataKey="employeeCount" radius={[0, 4, 4, 0]} barSize={24}>
+                    {managerStats.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={['#6366f1', '#8b5cf6', '#ec4899', '#14b8a6', '#f59e0b'][index % 5]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      {activeTab === 'ALL_USERS' && (
+        <>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 400 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 6 }}>Role</div>
@@ -237,7 +361,11 @@ function AdminUsersView() {
                           <td style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{formatUserId(u.userId)}</td>
                           <td>
                             <div className="user-cell">
-                              <div className="avatar avatar-md">{initials(name)}</div>
+                              <img 
+                                src={u.profileImage || u.photoUrl || u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=8b5cf6&color=fff`} 
+                                alt={name} 
+                                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} 
+                              />
                               <div className="user-name" style={{ fontWeight: 600, fontSize: '0.85rem' }}>{name}</div>
                             </div>
                           </td>
@@ -277,9 +405,11 @@ function AdminUsersView() {
                                   <button onClick={() => { setEditing(u); setForm(true); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)' }}>
                                     Edit
                                   </button>
-                                  <button onClick={() => { handleDelete(u.userId, name); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc2626' }}>
-                                    Delete
-                                  </button>
+                                  {u.userId !== currentUserId && (
+                                    <button onClick={() => { handleDelete(u); setOpenMenu(null) }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc2626' }}>
+                                      Delete
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>
@@ -291,20 +421,37 @@ function AdminUsersView() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
             <div className="pagination">
-              <span>Showing {totalFiltered === 0 ? 0 : Math.min((page - 1) * pageSize + 1, totalFiltered)} to {Math.min(page * pageSize, totalFiltered)} of {totalFiltered} users</span>
+              <span>
+                Showing {totalFiltered === 0 ? 0 : Math.min((page - 1) * pageSize + 1, totalFiltered)}–{Math.min(page * pageSize, totalFiltered)} of {totalFiltered} users
+              </span>
               <div className="pag-controls">
-                <button className="pag-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>‹</button>
-                {Array.from({ length: Math.min(pages, 5) }, (_, i) => i + 1).map(n => (
-                  <button key={n} className={`pag-btn${page === n ? ' active' : ''}`} onClick={() => setPage(n)}>{n}</button>
-                ))}
-                <button className="pag-btn" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>›</button>
+                <button className="pag-btn" disabled={page === 1} onClick={() => setPage(p => p - 1)}>
+                  <ChevronLeft size={14}/>
+                </button>
+                {(() => {
+                  const windowSize = Math.min(pages, 5)
+                  let start = Math.max(1, page - Math.floor(windowSize / 2))
+                  const end = Math.min(pages, start + windowSize - 1)
+                  start = Math.max(1, end - windowSize + 1)
+                  return Array.from({ length: end - start + 1 }, (_, i) => start + i).map(n => (
+                    <button key={n} className={`pag-btn${page === n ? ' active' : ''}`} onClick={() => setPage(n)}>{n}</button>
+                  ))
+                })()}
+                <button className="pag-btn" disabled={page >= pages} onClick={() => setPage(p => p + 1)}>
+                  <ChevronRight size={14}/>
+                </button>
               </div>
             </div>
           </>
         )}
       </div>
+      </>
+      )}
 
+      {/* Modals */}
       {showForm && (
         <UserFormModal
           user={editing}
@@ -312,6 +459,17 @@ function AdminUsersView() {
           onSaved={() => { qc.invalidateQueries({ queryKey: ['users-list'] }); setForm(false); setEditing(null) }}
         />
       )}
+
+      <DeleteUserModal
+        user={deleteTarget}
+        isDeleting={deleteMut.isPending}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={(id) => {
+          deleteMut.mutate(id, {
+            onSuccess: () => setDeleteTarget(null),
+          })
+        }}
+      />
     </div>
   )
 }
@@ -321,6 +479,7 @@ function ManagerTeamMembersView() {
 
   // Filters
   const [search, setSearch] = useState('')
+  const [tempSearch, setTempSearch] = useState('')
   const [roleF, setRoleF] = useState('')
   const [statusF, setStatusF] = useState('')
   const [page, setPage] = useState(1)
@@ -328,6 +487,7 @@ function ManagerTeamMembersView() {
 
   const qc = useQueryClient()
   const [showAddMember, setShowAddMember] = useState(false)
+  const [editingMember, setEditingMember] = useState(null)
 
   // Projects
   const { data: rawProjects = [], isLoading: pLoading } = useQuery({
@@ -335,8 +495,24 @@ function ManagerTeamMembersView() {
     queryFn: () => projectApi.getAll().then(r => r.data?.data || r.data || []),
     staleTime: 60_000,
   })
-  
-  const myProjects = useMemo(() => rawProjects.filter(p => p.managerName === user?.fullName), [rawProjects, user])
+
+  // Fetch members for all projects to check if the manager is assigned as a member
+  const memberQueries = useQueries({
+    queries: rawProjects.map(p => ({
+      queryKey: ['project-members', p.projectId],
+      queryFn: () => projectApi.getMembers(p.projectId).then(r => r.data?.data || []),
+      staleTime: 60_000,
+    }))
+  })
+
+  const myProjects = useMemo(() => {
+    return rawProjects.filter((p, index) => {
+      const isManager = String(p.managerId) === String(user?.userId) || p.managerName === user?.fullName
+      const projectMembers = memberQueries[index]?.data || []
+      const isMember = projectMembers.some(m => String(m.userId) === String(user?.userId))
+      return isManager || isMember
+    })
+  }, [rawProjects, user, memberQueries])
   
   const [selectedProjectId, setSelectedProjectId] = useState('')
   
@@ -363,13 +539,12 @@ function ManagerTeamMembersView() {
 
   // Combine member + user info
   const members = useMemo(() => {
-    return rawMembers.map(m => {
-      const u = allUsers.find(user => String(user.userId) === String(m.userId)) || {}
-      return {
-        ...m,
-        department: u.department,
-      }
-    })
+    return rawMembers
+      .map(m => {
+        const u = allUsers.find(user => String(user.userId) === String(m.userId)) || {}
+        return { ...m, department: u.department, role: u.role }
+      })
+      .filter(m => m.role !== 'ADMIN')
   }, [rawMembers, allUsers])
 
   const filtered = members.filter(m => {
@@ -393,7 +568,7 @@ function ManagerTeamMembersView() {
   const roles = [...new Set(members.map(m => m.roleInProject).filter(Boolean))]
 
   const resetFilters = () => {
-    setSearch(''); setRoleF(''); setStatusF(''); setPage(1)
+    setSearch(''); setTempSearch(''); setRoleF(''); setStatusF(''); setPage(1)
   }
 
   // badge style for role
@@ -467,7 +642,7 @@ function ManagerTeamMembersView() {
           </div>
         </div>
 
-        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer' }} onClick={resetFilters}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Users size={20} />
@@ -480,7 +655,7 @@ function ManagerTeamMembersView() {
           <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-primary)', marginTop: 'auto' }}>View all members</div>
         </div>
 
-        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer' }} onClick={() => { resetFilters(); setStatusF('ACTIVE'); }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#dcfce7', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <UserCheck size={20} />
@@ -498,7 +673,7 @@ function ManagerTeamMembersView() {
           </div>
         </div>
 
-        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="card" style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: 'pointer' }} onClick={() => { resetFilters(); setStatusF('INACTIVE'); }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 44, height: 44, borderRadius: '12px', background: '#fee2e2', color: '#ef4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <UserX size={20} />
@@ -538,7 +713,19 @@ function ManagerTeamMembersView() {
           <div style={{ flex: 2, position: 'relative' }}>
             <div style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: 6, color: 'transparent' }}>Search</div>
             <Search size={16} style={{ position: 'absolute', left: 12, bottom: 11, color: '#94a3b8' }} />
-            <input className="form-input" placeholder="Search by name or email..." value={search} onChange={e => {setSearch(e.target.value); setPage(1)}} style={{ height: 38, paddingLeft: 36 }} />
+            <input 
+              className="form-input" 
+              placeholder="Search by name or email..." 
+              value={tempSearch} 
+              onChange={e => setTempSearch(e.target.value)} 
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  setSearch(tempSearch)
+                  setPage(1)
+                }
+              }}
+              style={{ height: 38, paddingLeft: 36 }} 
+            />
           </div>
         </div>
         <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
@@ -574,7 +761,11 @@ function ManagerTeamMembersView() {
                         <tr key={m.memberId}>
                           <td>
                             <div className="user-cell">
-                              <div className="avatar avatar-md">{initials(m.fullName)}</div>
+                              <img 
+                                src={m.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(m.fullName)}&background=8b5cf6&color=fff`} 
+                                alt={m.fullName} 
+                                style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} 
+                              />
                               <div>
                                 <div className="user-name" style={{ fontWeight: 600, fontSize: '0.85rem' }}>{m.fullName}</div>
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m.email}</div>
@@ -613,6 +804,12 @@ function ManagerTeamMembersView() {
                                     minWidth: 120, overflow: 'hidden',
                                   }}
                                 >
+                                  <button onClick={() => { 
+                                    setEditingMember(m)
+                                    setOpenMenu(null) 
+                                  }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-light)' }}>
+                                    Edit Role
+                                  </button>
                                   <button onClick={() => { 
                                     if(window.confirm(`Remove ${m.fullName} from this project?`)) {
                                       removeMut.mutate(m.userId)
@@ -654,6 +851,15 @@ function ManagerTeamMembersView() {
           currentMembers={members}
           onClose={() => setShowAddMember(false)}
           onSaved={() => setShowAddMember(false)}
+        />
+      )}
+
+      {editingMember && selectedProjectId && (
+        <EditMemberModal
+          projectId={selectedProjectId}
+          member={editingMember}
+          onClose={() => setEditingMember(null)}
+          onSaved={() => setEditingMember(null)}
         />
       )}
     </div>

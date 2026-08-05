@@ -55,14 +55,45 @@ public class AuthController {
         User user = userOpt.get();
         System.out.println("User found: " + user.getEmail() + " | Role: " + user.getRole());
         
+        // 2. Check if user is blocked / inactive first
+        if (user.getStatus() != null && (user.getStatus().name().equals("INACTIVE") || user.getStatus().name().equals("BLOCKED"))) {
+            System.out.println("Result: Account is blocked/inactive for user " + user.getEmail());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(ApiResponse.error("ACCOUNT_BLOCKED"));
+        }
+
         if (!passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             System.out.println("Result: Password mismatch for user " + user.getEmail());
+            
+            // Track failed attempts and block if necessary (exclude ADMIN)
+            if (user.getRole() != Role.ADMIN) {
+                user.setFailedLoginAttempts(user.getFailedLoginAttempts() + 1);
+                
+                if (user.getFailedLoginAttempts() >= 4) {
+                    user.setStatus(com.planora.common.enums.UserStatus.BLOCKED);
+                    userRepository.save(user);
+                    System.out.println("Result: Account blocked due to too many failed attempts: " + user.getEmail());
+                    return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                            .body(ApiResponse.error("ACCOUNT_BLOCKED"));
+                }
+                
+                userRepository.save(user);
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(ApiResponse.error("Wrong password. " + (4 - user.getFailedLoginAttempts()) + " attempt(s) remaining before account is blocked."));
+            }
+            
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(ApiResponse.error("Wrong password"));
         }
         System.out.println("Password matched successfully.");
 
-        // 2. Standard Spring Security Authentication
+        // Reset failed login attempts on successful password match
+        if (user.getFailedLoginAttempts() > 0) {
+            user.setFailedLoginAttempts(0);
+            userRepository.save(user);
+        }
+
+        // 4. Standard Spring Security Authentication
         try {
             System.out.println("Attempting Spring Security Authentication...");
             authManager.authenticate(
@@ -162,6 +193,7 @@ public class AuthController {
         profile.put("role",        user.getRole());
         profile.put("department",  user.getDepartment());
         profile.put("designation", user.getDesignation());
+        profile.put("profileImage",user.getProfileImage());
         profile.put("status",      user.getStatus());
         profile.put("createdAt",   user.getCreatedAt());
 
@@ -233,6 +265,7 @@ public class AuthController {
         if (body.containsKey("phone"))       user.setPhoneNo(body.get("phone"));
         if (body.containsKey("department"))  user.setDepartment(body.get("department"));
         if (body.containsKey("designation")) user.setDesignation(body.get("designation"));
+        if (body.containsKey("profileImage")) user.setProfileImage(body.get("profileImage"));
 
         userRepository.save(user);
 
@@ -246,6 +279,7 @@ public class AuthController {
         profile.put("role",        user.getRole());
         profile.put("department",  user.getDepartment());
         profile.put("designation", user.getDesignation());
+        profile.put("profileImage",user.getProfileImage());
         profile.put("status",      user.getStatus());
         profile.put("createdAt",   user.getCreatedAt());
 
@@ -260,6 +294,7 @@ public class AuthController {
                 .fullName(user.getFullName())
                 .role(user.getRole())
                 .userId(user.getUserId())
+                .profileImage(user.getProfileImage())
                 .build();
     }
 }

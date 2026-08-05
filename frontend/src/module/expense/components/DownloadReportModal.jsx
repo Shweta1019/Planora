@@ -10,7 +10,7 @@ export default function DownloadReportModal({ budget, onClose }) {
 
   const handleDownload = () => {
     let ext = format.toLowerCase();
-    if (ext === 'excel') ext = 'xlsx';
+    if (ext === 'excel') ext = 'csv';
     
     let type = 'text/plain';
     if (ext === 'pdf') type = 'application/pdf';

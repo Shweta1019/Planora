@@ -20,6 +20,7 @@ public class DocumentMapper {
                 .taskTitle(d.getTask() != null ? d.getTask().getTitle() : null)
                 .uploadedById(d.getUploadedBy() != null ? d.getUploadedBy().getUserId() : null)
                 .uploadedByName(d.getUploadedBy() != null ? d.getUploadedBy().getFullName() : null)
+                .uploadedByProfileImage(d.getUploadedBy() != null ? d.getUploadedBy().getProfileImage() : null)
                 .createdAt(d.getCreatedAt())
                 .build();
     }

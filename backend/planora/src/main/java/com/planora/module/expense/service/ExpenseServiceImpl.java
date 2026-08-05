@@ -12,8 +12,9 @@ import com.planora.module.project.entity.Project;
 import com.planora.module.project.exception.ProjectNotFoundException;
 import com.planora.module.project.repository.ProjectRepository;
 import com.planora.module.user.entity.User;
-import com.planora.module.user.exception.UserNotFoundException;
 import com.planora.module.user.repository.UserRepository;
+import com.planora.module.user.exception.UserNotFoundException;
+import com.planora.module.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +33,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
     private final ExpenseMapper expenseMapper;
+    private final NotificationService notificationService;
 
     @Override
     public ExpenseResponseDto createExpense(ExpenseCreateRequestDto dto) {
@@ -53,15 +55,18 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .project(project)
                 .submittedBy(submittedBy)
                 .build();
-
-        return expenseMapper.toResponseDto(expenseRepository.save(expense));
+        Expense saved = expenseRepository.save(expense);
+        updateBudgetState(project);
+        return expenseMapper.toResponseDto(saved);
     }
 
     @Override
     public ExpenseResponseDto updateExpenseStatus(Long expenseId, ExpenseStatusUpdateRequestDto dto) {
         Expense expense = findOrThrow(expenseId);
         expense.setStatus(dto.getStatus());
-        return expenseMapper.toResponseDto(expenseRepository.save(expense));
+        Expense saved = expenseRepository.save(expense);
+        updateBudgetState(expense.getProject());
+        return expenseMapper.toResponseDto(saved);
     }
 
     @Override
@@ -80,7 +85,11 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     public void deleteExpense(Long expenseId) {
-        expenseRepository.delete(findOrThrow(expenseId));
+        Expense expense = findOrThrow(expenseId);
+        Project project = expense.getProject();
+        expenseRepository.delete(expense);
+        expenseRepository.flush();
+        updateBudgetState(project);
     }
 
     @Override
@@ -106,5 +115,31 @@ public class ExpenseServiceImpl implements ExpenseService {
     private Expense findOrThrow(Long expenseId) {
         return expenseRepository.findById(expenseId)
                 .orElseThrow(() -> new ExpenseNotFoundException(expenseId));
+    }
+
+    private void updateBudgetState(Project project) {
+        if (project.getBudget() == null) return;
+        BigDecimal approved = expenseRepository.sumApprovedAmountByProject(project.getProjectId());
+        if (approved == null) approved = BigDecimal.ZERO;
+
+        project.setSpentAmount(approved);
+
+        boolean wasOverrun = project.isBudgetOverrun();
+        boolean isOverrun = project.getBudget().compareTo(BigDecimal.ZERO) > 0 && approved.compareTo(project.getBudget()) > 0;
+
+        if (isOverrun && !wasOverrun) {
+            project.setBudgetOverrun(true);
+            if (project.getManager() != null) {
+                notificationService.send(
+                        project.getManager().getUserId(),
+                        "Budget Overrun",
+                        "Project \"" + project.getProjectName() + "\" has exceeded its budget.",
+                        "BUDGET_OVERRUN"
+                );
+            }
+        } else if (!isOverrun && wasOverrun) {
+            project.setBudgetOverrun(false);
+        }
+        projectRepository.save(project);
     }
 }

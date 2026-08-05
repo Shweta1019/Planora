@@ -12,6 +12,7 @@ public class ActivityLogResponseDto {
     private Long logId;
     private Long userId;
     private String userFullName;
+    private String userProfileImage;
     private String action;
     private String description;
     private String entityType;

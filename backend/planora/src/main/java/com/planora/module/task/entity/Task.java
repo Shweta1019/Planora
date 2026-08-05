@@ -38,8 +38,14 @@ public class Task {
     private TaskPriority priority = TaskPriority.MEDIUM;
 
     @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "VARCHAR(255)")
     @Builder.Default
     private TaskStatus status = TaskStatus.TODO;
+
+    @Builder.Default
+    private Integer completionPercentage = 0;
+
+    private LocalDate startDate;
 
     private LocalDate dueDate;
 
@@ -51,6 +57,10 @@ public class Task {
     @JoinColumn(name = "assigned_to")
     private User assignedTo;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_by")
+    private User assignedBy;
+
     @OneToMany(mappedBy = "task", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<Comment> comments = new ArrayList<>();
@@ -60,4 +70,24 @@ public class Task {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    @PreUpdate
+    public void syncCompletionPercentage() {
+        if (this.status == TaskStatus.COMPLETED) {
+            this.completionPercentage = 100;
+        } else if (this.status == TaskStatus.IN_REVIEW) {
+            if (this.completionPercentage == null || this.completionPercentage == 0) {
+                this.completionPercentage = 75;
+            }
+        } else if (this.status == TaskStatus.IN_PROGRESS) {
+            if (this.completionPercentage == null || this.completionPercentage == 0) {
+                this.completionPercentage = 50;
+            }
+        } else if (this.status == TaskStatus.TODO || this.status == TaskStatus.NOT_STARTED) {
+            if (this.completionPercentage == null) {
+                this.completionPercentage = 0;
+            }
+        }
+    }
 }

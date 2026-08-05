@@ -17,6 +17,7 @@ public interface ProjectService {
     void deleteProject(Long projectId);
 
     ProjectMemberResponseDto assignMemberToProject(Long projectId, ProjectMemberAssignRequestDto requestDto);
+    ProjectMemberResponseDto updateProjectMember(Long projectId, Long userId, ProjectMemberUpdateRequestDto requestDto);
     List<ProjectMemberResponseDto> getProjectMembers(Long projectId);
     void removeMemberFromProject(Long projectId, Long userId);
 }

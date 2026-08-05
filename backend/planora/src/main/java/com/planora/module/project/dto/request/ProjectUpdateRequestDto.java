@@ -16,4 +16,5 @@ public class ProjectUpdateRequestDto {
     private BigDecimal budget;
     private ProjectPriority priority;
     private Integer completionPercentage;
+    private Long managerId;
 }

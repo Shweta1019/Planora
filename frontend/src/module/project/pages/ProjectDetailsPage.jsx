@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectApi } from '../../../api/projectApi'
 import { taskApi }    from '../../../api/taskApi'
 import { activityApi }from '../../../api/activityApi'
+import { userApi }    from '../../../api/userApi'
+import { expenseApi } from '../../../api/expenseApi'
 import {
   ArrowLeft, Star, Share2, MoreHorizontal, Pencil,
-  User, Building, Tag, Calendar, FileText, Check
+  User, Building, Tag, Calendar, FileText, Check, Plus, MoreVertical, Trash2
 } from 'lucide-react'
 import {
   formatDate, formatDateTime, statusBadgeClass, statusLabel,
   priorityBadgeClass, progressColor, timeAgo, initials
 } from '../../../utils/formatDate'
 import ProjectFormModal from '../components/ProjectForm'
-import { useQueryClient } from '@tanstack/react-query'
+import AddMemberModal from '../../user/components/AddMemberModal'
+import EditMemberModal from '../../user/components/EditMemberModal'
 
 const TABS = ['Overview','Tasks','Files','Team','Timeline','Budget','Discussions','Activity']
 
@@ -23,6 +26,9 @@ export default function ProjectDetailsPage() {
   const qc           = useQueryClient()
   const [tab, setTab]        = useState(0)
   const [editing, setEditing] = useState(false)
+  const [showAddMember, setShowAddMember] = useState(false)
+  const [editingMember, setEditingMember] = useState(null)
+  const [openMenu, setOpenMenu] = useState(null)
 
   const { data: project, isLoading } = useQuery({
     queryKey: ['project', id],
@@ -48,11 +54,43 @@ export default function ProjectDetailsPage() {
     staleTime: 30_000,
   })
 
+  const { data: allUsers = [] } = useQuery({
+    queryKey: ['users-list'],
+    queryFn: () => userApi.getAll().then(r => r.data?.data || r.data || []),
+    staleTime: 60_000,
+  })
+
+  const removeMut = useMutation({
+    mutationFn: (userId) => projectApi.removeMember(id, userId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project', id] }),
+  })
+
   const projectTasks   = tasks.filter(t => String(t.projectId) === String(id))
   const recentTasks    = projectTasks.slice(0, 5)
 
   const completedCount = projectTasks.filter(t=>t.status==='COMPLETED').length
-  const pct = project?.completionPercentage || (projectTasks.length ? Math.round(completedCount/projectTasks.length*100) : 0)
+  const pct = (project?.status === 'COMPLETED' || project?.status === 'Completed') ? 100 : (project?.completionPercentage || (projectTasks.length ? Math.round(completedCount/projectTasks.length*100) : 0))
+
+  // Budget calculations
+  const { data: expenses = [] } = useQuery({
+    queryKey: ['expenses-project', id],
+    queryFn: () => expenseApi.getByProject(id).then(r => {
+      const d = r.data?.data || r.data
+      return Array.isArray(d) ? d : d?.content || []
+    }),
+    staleTime: 30_000,
+    enabled: !!id,
+  })
+  const totalBudget  = project?.budget != null ? Number(project.budget) : 0
+  const totalSpent   = expenses.reduce((s, e) => s + (e.amount || 0), 0)
+  const remaining    = totalBudget - totalSpent
+  const utilization  = totalBudget > 0 ? (totalSpent / totalBudget * 100).toFixed(1) : 0
+  const budgetStatus = utilization >= 100 ? 'Over Budget' : utilization >= 80 ? 'At Risk' : 'On Track'
+
+  function formatINR(val) {
+    if (val == null) return '₹0'
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(val)
+  }
 
   // milestones — static for now
   const milestones = [
@@ -179,7 +217,13 @@ export default function ProjectDetailsPage() {
                       <div style={{ fontSize:'0.85rem', fontWeight:500 }}>{t.taskName}</div>
                     </div>
                     <div className="user-cell" style={{ gap:6 }}>
-                      {t.assignedToName && <div className="avatar avatar-sm">{initials(t.assignedToName)}</div>}
+                      {t.assignedToName && (
+                        t.assignedToProfileImage ? (
+                          <img src={t.assignedToProfileImage} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                        ) : (
+                          <div className="avatar avatar-sm">{initials(t.assignedToName)}</div>
+                        )
+                      )}
                     </div>
                     <span style={{ fontSize:'0.75rem', color:'var(--text-muted)' }}>{formatDate(t.dueDate)}</span>
                     <span className={`badge ${statusBadgeClass(t.status)}`} style={{ fontSize:'0.72rem' }}>{statusLabel(t.status)}</span>
@@ -262,6 +306,42 @@ export default function ProjectDetailsPage() {
               )}
             </div>
 
+            {/* Budget Summary Card in Sidebar */}
+            {totalBudget > 0 && (
+              <div className="card">
+                <div style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>Budget</span>
+                  <span style={{
+                    fontSize: '0.72rem', fontWeight: 600, padding: '2px 8px', borderRadius: 12,
+                    background: budgetStatus === 'Over Budget' ? '#fee2e2' : budgetStatus === 'At Risk' ? '#fef3c7' : '#d1fae5',
+                    color:      budgetStatus === 'Over Budget' ? '#dc2626' : budgetStatus === 'At Risk' ? '#d97706' : '#059669',
+                  }}>{budgetStatus}</span>
+                </div>
+                {[
+                  { label: 'Total Budget', value: formatINR(totalBudget), color: 'var(--text-primary)' },
+                  { label: 'Spent',        value: formatINR(totalSpent),  color: '#ef4444' },
+                  { label: 'Remaining',    value: formatINR(remaining),   color: '#059669' },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10, fontSize: '0.82rem' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                    <span style={{ fontWeight: 600, color }}>{value}</span>
+                  </div>
+                ))}
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: 4 }}>
+                    <span>% Used</span><span>{utilization}%</span>
+                  </div>
+                  <div style={{ height: 6, background: 'var(--border)', borderRadius: 4 }}>
+                    <div style={{
+                      height: 6, borderRadius: 4,
+                      background: budgetStatus === 'Over Budget' ? '#ef4444' : budgetStatus === 'At Risk' ? '#f59e0b' : '#6366f1',
+                      width: `${Math.min(Number(utilization), 100)}%`, transition: 'width 0.4s'
+                    }} />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Team */}
             {project.members?.length > 0 && (
               <div className="card">
@@ -271,7 +351,11 @@ export default function ProjectDetailsPage() {
                 </div>
                 {project.members.slice(0,4).map((m,i)=>(
                   <div key={i} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:10 }}>
-                    <div className="avatar avatar-sm">{initials(m.fullName||m.name)}</div>
+                    {m.profileImage ? (
+                      <img src={m.profileImage} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                    ) : (
+                      <div className="avatar avatar-sm">{initials(m.fullName||m.name)}</div>
+                    )}
                     <div style={{ flex:1 }}>
                       <div style={{ fontSize:'0.82rem', fontWeight:500 }}>{m.fullName||m.name}</div>
                       <div style={{ fontSize:'0.72rem', color:'var(--text-muted)' }}>{m.role?.replace('_',' ')}</div>
@@ -285,7 +369,185 @@ export default function ProjectDetailsPage() {
         </div>
       )}
 
-      {tab !== 0 && (
+      {tab === 3 && (
+        <div className="card" onClick={() => setOpenMenu(null)}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div>
+              <h3 style={{ fontWeight: 700, fontSize: '1.05rem', margin: 0 }}>Team Members</h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '4px 0 0 0' }}>Manage team members for this project.</p>
+            </div>
+            <button className="btn btn-primary" onClick={() => setShowAddMember(true)}>
+              <Plus size={15} /> Add Member
+            </button>
+          </div>
+          <div className="table-wrap" style={{ overflow: 'visible' }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                  <th>Joined On</th>
+                  <th style={{ textAlign: 'center' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!project.members || project.members.length === 0)
+                  ? <tr><td colSpan={5} className="table-empty">No team members assigned yet.</td></tr>
+                  : project.members.map(m => {
+                    const isMenuOpen = openMenu === m.userId
+                    return (
+                      <tr key={m.userId}>
+                        <td>
+                          <div className="user-cell">
+                            {m.profileImage ? (
+                              <img src={m.profileImage} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                              <div className="avatar avatar-md">{initials(m.fullName || m.name)}</div>
+                            )}
+                            <div>
+                              <div className="user-name" style={{ fontWeight: 600, fontSize: '0.85rem' }}>{m.fullName || m.name}</div>
+                              {m.email && <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{m.email}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{ padding: '4px 10px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600, background: '#e0f2fe', color: '#3b82f6' }}>
+                            {m.roleInProject || m.role?.replace('_', ' ') || 'Team Member'}
+                          </span>
+                        </td>
+                        <td>
+                          <span style={{ padding: '4px 10px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600, background: '#dcfce7', color: '#22c55e' }}>
+                            Active
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: 500 }}>
+                          {m.assignedDate ? formatDate(m.assignedDate) : '—'}
+                        </td>
+                        <td>
+                          <div style={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+                            <button
+                              style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4, color: '#5b21b6' }}
+                              onClick={(e) => { e.stopPropagation(); setOpenMenu(isMenuOpen ? null : m.userId) }}
+                            >
+                              <MoreVertical size={16} />
+                            </button>
+
+                            {isMenuOpen && (
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                style={{
+                                  position: 'absolute', right: 36, top: 0, zIndex: 50,
+                                  background: '#fff', borderRadius: 8,
+                                  boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+                                  border: '1px solid #f0f0f0',
+                                  minWidth: 120, overflow: 'hidden',
+                                }}
+                              >
+                                <button onClick={() => { 
+                                  setEditingMember(m)
+                                  setOpenMenu(null) 
+                                }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-light)' }}>
+                                  Edit Role
+                                </button>
+                                <button onClick={() => { 
+                                  if(window.confirm(`Remove ${m.fullName || m.name} from this project?`)) {
+                                    removeMut.mutate(m.userId)
+                                  }
+                                  setOpenMenu(null) 
+                                }} style={{ width: '100%', padding: '8px 12px', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.8rem', color: '#dc2626' }}>
+                                  Remove Member
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Budget Tab */}
+      {tab === 5 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {/* Summary Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+            {[
+              { label: 'Total Budget', value: formatINR(totalBudget), color: 'var(--purple)' },
+              { label: 'Spent',        value: formatINR(totalSpent),  color: '#ef4444' },
+              { label: 'Remaining',    value: formatINR(remaining),   color: '#059669' },
+              { label: '% Used',       value: `${utilization}%`,      color: '#7c3aed' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="card" style={{ padding: 20, textAlign: 'center' }}>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 8 }}>{label}</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 700, color }}>{value}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Progress Bar */}
+          <div className="card" style={{ padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>Budget Utilization</span>
+              <span style={{
+                fontSize: '0.8rem', fontWeight: 600, padding: '3px 10px', borderRadius: 12,
+                background: budgetStatus === 'Over Budget' ? '#fee2e2' : budgetStatus === 'At Risk' ? '#fef3c7' : '#d1fae5',
+                color:      budgetStatus === 'Over Budget' ? '#dc2626' : budgetStatus === 'At Risk' ? '#d97706' : '#059669',
+              }}>{budgetStatus}</span>
+            </div>
+            <div style={{ height: 10, background: 'var(--border)', borderRadius: 8 }}>
+              <div style={{
+                height: 10, borderRadius: 8,
+                background: budgetStatus === 'Over Budget' ? '#ef4444' : budgetStatus === 'At Risk' ? '#f59e0b' : '#6366f1',
+                width: `${Math.min(Number(utilization), 100)}%`, transition: 'width 0.6s'
+              }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              <span>₹0</span><span>{formatINR(totalBudget)}</span>
+            </div>
+          </div>
+
+          {/* Expense List */}
+          <div className="card" style={{ padding: 0 }}>
+            <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: '0.9rem' }}>
+              Expense Breakdown
+            </div>
+            {expenses.length === 0 ? (
+              <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No expenses recorded yet.</div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Description</th>
+                    <th>Category</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expenses.map((e, i) => (
+                    <tr key={e.expenseId || i}>
+                      <td style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>{i + 1}</td>
+                      <td style={{ fontWeight: 500, fontSize: '0.85rem' }}>{e.description || '—'}</td>
+                      <td><span style={{ background: '#ede9fe', color: '#7c3aed', padding: '2px 8px', borderRadius: 4, fontSize: '0.75rem', fontWeight: 600 }}>{e.category || 'General'}</span></td>
+                      <td style={{ fontWeight: 700, color: '#ef4444' }}>{formatINR(e.amount)}</td>
+                      <td style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>{e.date ? new Date(e.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {tab !== 0 && tab !== 3 && tab !== 5 && (
         <div className="card" style={{ textAlign:'center', padding:60 }}>
           <div style={{ fontSize:'3rem', marginBottom:12 }}>🚧</div>
           <h3 style={{ fontWeight:600, marginBottom:8 }}>{TABS[tab]}</h3>
@@ -299,6 +561,26 @@ export default function ProjectDetailsPage() {
           users={[]}
           onClose={()=>setEditing(false)}
           onSaved={()=>{ qc.invalidateQueries({queryKey:['project',id]}); setEditing(false) }}
+        />
+      )}
+
+      {showAddMember && (
+        <AddMemberModal
+          projectId={id}
+          projectName={project.projectName}
+          allUsers={allUsers}
+          currentMembers={project.members || []}
+          onClose={() => setShowAddMember(false)}
+          onSaved={() => { setShowAddMember(false); qc.invalidateQueries({ queryKey: ['project', id] }); }}
+        />
+      )}
+
+      {editingMember && (
+        <EditMemberModal
+          projectId={id}
+          member={editingMember}
+          onClose={() => setEditingMember(null)}
+          onSaved={() => { setEditingMember(null); qc.invalidateQueries({ queryKey: ['project', id] }); }}
         />
       )}
     </div>

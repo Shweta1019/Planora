@@ -8,4 +8,7 @@ export const notificationApi = {
   countUnread:   (userId)  => api.get(`/notifications/user/${userId}/count`),
   markRead:      (id)      => api.patch(`/notifications/${id}/read`),
   markAllRead:   (userId)  => api.patch(`/notifications/user/${userId}/read-all`),
+  delete:        (id)      => api.delete(`/notifications/${id}`),
+  deleteAll:     (userId)  => api.delete(`/notifications/user/${userId}/all`),
+  deleteMultiple:(ids)     => api.delete(`/notifications/bulk`, { data: ids }),
 }

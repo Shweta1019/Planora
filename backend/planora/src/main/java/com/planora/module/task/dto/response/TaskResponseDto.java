@@ -17,11 +17,17 @@ public class TaskResponseDto {
     private String description;
     private TaskPriority priority;
     private TaskStatus status;
+    private LocalDate startDate;
     private LocalDate dueDate;
+    private Integer completionPercentage;
     private Long projectId;
     private String projectName;
     private Long assignedToId;
     private String assignedToName;
+    private Long assignedById;
+    private String assignedByName;
+    private String assignedToProfileImage;
+    private String assignedByProfileImage;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

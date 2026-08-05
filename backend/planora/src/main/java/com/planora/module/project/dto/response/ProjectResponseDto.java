@@ -22,6 +22,7 @@ public class ProjectResponseDto {
     private ProjectPriority priority;
     private BigDecimal budget;
     private BigDecimal spentAmount;
+    private boolean budgetOverrun;
     private Integer completionPercentage;
     private Long managerId;
     private String managerName;

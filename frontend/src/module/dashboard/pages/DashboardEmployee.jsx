@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   ClipboardList, Calendar, CheckSquare, Clock,
-  AlertCircle, Bell, FolderKanban
+  AlertCircle, Bell, FolderKanban, FileText
 } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as ReTooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 import { formatDate } from '../../../utils/formatDate'
@@ -16,6 +17,7 @@ const COLORS = {
 }
 
 export default function DashboardEmployee({ tasks = [], projects = [], activities = [], user }) {
+  const navigate = useNavigate()
 
   const stats = useMemo(() => {
     const now = new Date()
@@ -39,7 +41,7 @@ export default function DashboardEmployee({ tasks = [], projects = [], activitie
     tasks.forEach(t => {
       if (t.status === 'PLANNING' || t.status === 'TODO' || !t.status) s['To Do']++
       else if (t.status === 'IN_PROGRESS') s['In Progress']++
-      else if (t.status === 'REVIEW' || t.status === 'ON_HOLD') s['Review']++
+      else if (t.status === 'IN_REVIEW' || t.status === 'REVIEW' || t.status === 'ON_HOLD') s['Review']++
       else if (t.status === 'COMPLETED') s['Completed']++
     })
     return [
@@ -73,70 +75,55 @@ export default function DashboardEmployee({ tasks = [], projects = [], activitie
     ]
   }, [tasks])
 
-  const weeklyData = useMemo(() => {
-    return [
-      { name: 'Mon', value: 30 },
-      { name: 'Tue', value: 45 },
-      { name: 'Wed', value: 35 },
-      { name: 'Thu', value: 60 },
-      { name: 'Fri', value: 50 },
-      { name: 'Sat', value: 30 },
-      { name: 'Sun', value: 40 },
-    ]
-  }, [tasks])
+
 
   return (
     <div className="dashboard-layout">
-      <div className="stat-cards" style={{ gridTemplateColumns: 'repeat(7, 1fr)', gap: 12 }}>
-        <EmployeeStatCard icon={ClipboardList} color="#f3e8ff" iconColor="#a855f7" title="My Assigned Tasks" value={stats.assigned} subtext="↓ 4 this month" />
-        <EmployeeStatCard icon={Calendar} color="#ffedd5" iconColor="#f97316" title="Tasks Due Today" value={stats.dueToday} subtext="Today" />
-        <EmployeeStatCard icon={CheckSquare} color="#e0f2fe" iconColor="#3b82f6" title="In Progress" value={stats.inProgress} subtext={stats.assigned ? Math.round(stats.inProgress/stats.assigned*100) + '%' : '0%'} />
-        <EmployeeStatCard icon={CheckSquare} color="#dcfce7" iconColor="#22c55e" title="Completed Tasks" value={stats.completed} subtext={stats.assigned ? Math.round(stats.completed/stats.assigned*100) + '%' : '0%'} />
-        <EmployeeStatCard icon={AlertCircle} color="#fee2e2" iconColor="#ef4444" title="Overdue Tasks" value={stats.overdue} subtext={stats.assigned ? Math.round(stats.overdue/stats.assigned*100) + '%' : '0%'} />
-        <EmployeeStatCard icon={Bell} color="#fef9c3" iconColor="#eab308" title="High Priority Tasks" value={stats.highPriority} subtext="This Month" />
-        <EmployeeStatCard icon={FolderKanban} color="#e0f2fe" iconColor="#3b82f6" title="My Projects" value={stats.activeProjects} subtext="Active" />
+      <div className="page-header" style={{ marginBottom: 20 }}>
+        <div>
+          <h1 className="page-heading">Dashboard</h1>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr 1fr 1fr', gap: 16, marginTop: 16 }}>
+      <div className="stat-cards" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+        <EmployeeStatCard icon={ClipboardList} color="#f3e8ff" iconColor="#a855f7" title="My Assigned Tasks" value={stats.assigned} linkText="View assigned tasks" onClick={() => navigate('/tasks')} />
+        <EmployeeStatCard icon={Calendar} color="#ffedd5" iconColor="#f97316" title="Tasks Due Today" value={stats.dueToday} linkText="View today's tasks" onClick={() => navigate('/tasks?tab=today')} />
+        <EmployeeStatCard icon={CheckSquare} color="#e0f2fe" iconColor="#3b82f6" title="In Progress" value={stats.inProgress} linkText="View in-progress tasks" onClick={() => navigate('/tasks')} />
+        <EmployeeStatCard icon={CheckSquare} color="#dcfce7" iconColor="#22c55e" title="Completed Tasks" value={stats.completed} linkText="View completed tasks" onClick={() => navigate('/tasks')} />
+        <EmployeeStatCard icon={AlertCircle} color="#fee2e2" iconColor="#ef4444" title="Overdue Tasks" value={stats.overdue} linkText="View overdue tasks" onClick={() => navigate('/tasks')} />
+        <EmployeeStatCard icon={FolderKanban} color="#e0f2fe" iconColor="#3b82f6" title="My Projects" value={stats.activeProjects} linkText="View my projects" onClick={() => navigate('/projects')} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 24 }}>
         <ChartCard title="My Task Status" data={taskStatusData} />
-        <div className="card chart-card">
-          <p className="chart-title">Weekly Progress</p>
-          <div style={{ height: 200, marginTop: 20 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={weeklyData} margin={{ left: -25, bottom: -10 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--text-muted)' }} tickFormatter={v => v + '%'} />
-                <ReTooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-                <Line type="monotone" dataKey="value" stroke={COLORS.purple} strokeWidth={3} dot={{ fill: COLORS.purple, r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
         <ChartCard title="Completed vs Pending Tasks" data={compVsPendData} />
         <ChartCard title="Tasks by Priority" data={priorityData} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginTop: 16 }}>
-        <ListCard title="Today's Tasks" items={tasks.slice(0, 4)} type="task" />
-        <ListCard title="Recently Assigned Tasks" items={tasks.slice(0, 4)} type="task" />
-        <ListCard title="My Upcoming Deadlines" items={tasks.filter(t => t.dueDate).slice(0, 4)} type="deadline" />
-        <ListCard title="My Recent Activity" items={activities.slice(0, 4)} type="activity" />
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginTop: 16 }}>
+        <ListCard title="Today's Tasks" items={tasks.slice(0, 4)} type="task" onViewAll={() => navigate('/tasks')} />
+        <ListCard title="My Active Projects" items={projects.slice(0, 4)} type="project" onViewAll={() => navigate('/projects')} />
+        <ListCard title="My Upcoming Deadlines" items={tasks.filter(t => t.dueDate).slice(0, 4)} type="deadline" onViewAll={() => navigate('/tasks')} />
       </div>
     </div>
   )
 }
 
-function EmployeeStatCard({ icon: Icon, color, iconColor, title, value, subtext }) {
+function EmployeeStatCard({ icon: Icon, color, iconColor, title, value, linkText, onClick }) {
   return (
-    <div className="card" style={{ padding: '16px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-      <div style={{ background: color, color: iconColor, width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Icon size={22} strokeWidth={1.5} />
+    <div className="card" onClick={onClick} style={{ padding: 20, display: 'flex', flexDirection: 'column', gap: 12, cursor: onClick ? 'pointer' : 'default', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 44, height: 44, borderRadius: '50%', background: color, color: iconColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Icon size={20} />
+        </div>
+        <div>
+          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{title}</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text-primary)' }}>{value}</div>
+        </div>
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title}</div>
-        <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4 }}>{subtext}</div>
+      <div style={{ fontSize: '0.8rem', fontWeight: 600, color: iconColor, marginTop: 'auto' }}>
+        {linkText} →
       </div>
     </div>
   )
@@ -178,28 +165,48 @@ function ChartCard({ title, data }) {
   )
 }
 
-function ListCard({ title, items, type }) {
+function ListCard({ title, items, type, onViewAll }) {
   return (
     <div className="card" style={{ padding: '16px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{title}</div>
-        <a href="#" style={{ color: COLORS.purple, fontSize: '0.8rem', textDecoration: 'none', fontWeight: 500 }}>View All</a>
+        {onViewAll && <span style={{ color: COLORS.purple, fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 }} onClick={onViewAll}>View All</span>}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {items.length === 0 ? <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No data available.</div> : null}
         {items.map((item, i) => {
+          if (type === 'project') {
+            const pct = (item.status === 'COMPLETED' || item.status === 'Completed') ? 100 : (item.completionPercentage || 0);
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ background: '#f3e8ff', color: '#a855f7', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <FileText size={16} />
+                </div>
+                <div style={{ flex: 1, overflow: 'hidden' }}>
+                  <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.projectName}</div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(item.createdAt)?.slice(0, 6) || 'N/A'}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, width: 100 }}>
+                  <div style={{ height: 6, flex: 1, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: COLORS.purple, borderRadius: 4 }} />
+                  </div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{pct}%</span>
+                </div>
+              </div>
+            )
+          }
           if (type === 'task') return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ background: '#f3e8ff', color: '#a855f7', width: 32, height: 32, borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <ClipboardList size={16} />
               </div>
               <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.taskName}</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title || item.taskName}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.projectName || 'Project Task'}</div>
               </div>
               {title === 'Today\'s Tasks' ? 
                 <span style={{ fontSize: '0.7rem', padding: '2px 6px', borderRadius: 4, background: item.priority==='HIGH'?'#fee2e2':'#fef9c3', color: item.priority==='HIGH'?'#ef4444':'#eab308' }}>{item.priority || 'Medium'}</span> :
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>1 May</span>
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(item.createdAt)?.slice(0,6) || 'N/A'}</span>
               }
             </div>
           )
@@ -209,7 +216,7 @@ function ListCard({ title, items, type }) {
                 <Calendar size={16} />
               </div>
               <div style={{ flex: 1, overflow: 'hidden' }}>
-                <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.taskName}</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title || item.taskName}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{item.projectName || 'Project Task'}</div>
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{formatDate(item.dueDate)?.slice(0,6) || 'N/A'}</span>
@@ -221,8 +228,9 @@ function ListCard({ title, items, type }) {
                 <CheckSquare size={12} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>{item.action || 'You updated a task'}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 2 }}>{formatDate(item.createdAt) || '1 hr ago'}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-primary)', fontWeight: 500 }}>{item.action || 'Action'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.4, marginTop: 2 }}>{item.description || 'No description available'}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: 4 }}>{formatDate(item.createdAt) || '1 hr ago'}</div>
               </div>
             </div>
           )

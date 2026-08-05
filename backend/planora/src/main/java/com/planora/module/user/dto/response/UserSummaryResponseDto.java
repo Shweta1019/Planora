@@ -16,4 +16,6 @@ public class UserSummaryResponseDto {
     private UserStatus status;
     private String department;
     private String designation;
+    private String profileImage;
+    private java.time.LocalDateTime createdAt;
 }

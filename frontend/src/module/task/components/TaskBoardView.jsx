@@ -12,13 +12,17 @@ const COLUMNS = [
 ]
 
 function TaskCard({ task, onEdit, onDelete }) {
-  const pct = task.completionPercentage || 0
+  const pct = task.status === 'COMPLETED' ? 100 : (task.status === 'IN_REVIEW' ? (task.completionPercentage || 75) : (task.status === 'IN_PROGRESS' ? (task.completionPercentage || 50) : (task.completionPercentage || 0)))
   return (
     <div className="task-card">
       <div className="task-card-project">{task.projectName || 'General'}</div>
       <div className="task-card-title">{task.title}</div>
       <div className="task-card-footer">
-        <div className="avatar avatar-sm">{task.assignedToName?.[0] || '?'}</div>
+        {task.assignedToProfileImage ? (
+          <img src={task.assignedToProfileImage} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+        ) : (
+          <div className="avatar avatar-sm">{task.assignedToName?.[0] || '?'}</div>
+        )}
         <span>{formatDate(task.dueDate)}</span>
         <span className={`badge ${priorityBadgeClass(task.priority)}`} style={{ fontSize: '0.7rem', padding: '1px 7px' }}>
           {task.priority}

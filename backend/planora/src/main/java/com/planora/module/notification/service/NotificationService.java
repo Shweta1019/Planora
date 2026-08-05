@@ -78,4 +78,19 @@ public class NotificationService {
             notificationRepository.save(n);
         });
     }
+
+    public void deleteNotification(Long notificationId) {
+        notificationRepository.deleteById(notificationId);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteAllForUser(Long userId) {
+        List<Notification> notifs = notificationRepository.findByUserUserIdOrderByCreatedAtDesc(userId);
+        notificationRepository.deleteAll(notifs);
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void deleteMultiple(List<Long> notificationIds) {
+        notificationRepository.deleteAllById(notificationIds);
+    }
 }

@@ -15,19 +15,31 @@ export default function DashboardPage() {
   const role = user?.role
 
   // Fetch all necessary data concurrently based on role
-  const { data: projects = [], isLoading: pLoading } = useQuery({
+  const { data: rawProjects = [], isLoading: pLoading } = useQuery({
     queryKey: ['projects-list'],
     queryFn: () => projectApi.getAll().then(r => r.data?.data || r.data || []),
     staleTime: 60_000,
+    enabled: role !== 'EMPLOYEE',
   })
+
+  const projects = role === 'PROJECT_MANAGER' ? rawProjects.filter(p => p.managerId === user?.userId) : rawProjects;
 
   const { data: activities = [], isLoading: aLoading } = useQuery({
     queryKey: ['recent-activity'],
-    queryFn: () => activityApi.getAll({ size: 10 }).then(r => {
-      const d = r.data?.data || r.data
-      return Array.isArray(d) ? d : d?.content || []
-    }),
-    staleTime: 30_000,
+    queryFn: () => {
+      if (role === 'EMPLOYEE' && user?.userId) {
+        return activityApi.getByUser(user.userId).then(r => {
+          const d = r.data?.data || r.data
+          return Array.isArray(d) ? d : d?.content || []
+        })
+      }
+      return activityApi.getAll({ size: 10 }).then(r => {
+        const d = r.data?.data || r.data
+        return Array.isArray(d) ? d : d?.content || []
+      })
+    },
+    staleTime: 0,
+    enabled: !!user?.userId
   })
 
   // Admins and Managers need all users
@@ -40,38 +52,39 @@ export default function DashboardPage() {
 
   // We need tasks. For Employee: fetch tasks assigned to them.
   // For Manager: fetch tasks from their projects.
-  // For Admin: Ideally fetch all tasks. Since there is no getAll tasks endpoint, 
-  // we will fetch tasks for all projects and flatten.
-  const [tasks, setTasks] = useState([])
-  const [tLoading, setTLoading] = useState(true)
-
-  useEffect(() => {
-    let isMounted = true
-    const fetchTasks = async () => {
-      try {
-        if (role === 'EMPLOYEE' && user?.userId) {
-          const res = await taskApi.getByUser(user.userId)
-          if (isMounted) setTasks(res.data?.data || res.data || [])
-        } else if (projects.length > 0) {
-          // Admin or Manager: fetch tasks for all available projects
-          const promises = projects.map(p => taskApi.getByProject(p.projectId))
-          const results = await Promise.all(promises)
-          const allTasks = results.flatMap(res => res.data?.data || res.data || [])
-          if (isMounted) setTasks(allTasks)
-        } else if (projects.length === 0 && !pLoading) {
-           if (isMounted) setTasks([])
-        }
-      } catch (err) {
-        console.error("Error fetching tasks for dashboard:", err)
-      } finally {
-        if (isMounted) setTLoading(false)
+  // For Admin: fetch tasks for all projects and flatten.
+  const { data: tasks = [], isLoading: tLoading } = useQuery({
+    queryKey: ['tasks-dashboard', role, user?.userId],
+    queryFn: async () => {
+      if (role === 'EMPLOYEE' && user?.userId) {
+        const res = await taskApi.getByUser(user.userId)
+        return res.data?.data || res.data || []
+      } else if (projects.length > 0) {
+        const promises = projects.map(p => taskApi.getByProject(p.projectId))
+        const results = await Promise.all(promises)
+        return results.flatMap(res => res.data?.data || res.data || [])
       }
-    }
-    fetchTasks()
-    return () => { isMounted = false }
-  }, [role, user?.userId, projects, pLoading])
+      return []
+    },
+    staleTime: 0,
+    enabled: (role === 'EMPLOYEE' && !!user?.userId) || (role !== 'EMPLOYEE' && !pLoading)
+  })
 
-  const isLoading = pLoading || aLoading || uLoading || tLoading
+  const { data: teamMembers = [], isLoading: tmLoading } = useQuery({
+    queryKey: ['team-members-dashboard', role, user?.userId],
+    queryFn: async () => {
+      if (projects.length > 0) {
+        const promises = projects.map(p => projectApi.getMembers(p.projectId))
+        const results = await Promise.all(promises)
+        return results.flatMap(res => res.data?.data || res.data || [])
+      }
+      return []
+    },
+    staleTime: 0,
+    enabled: role === 'PROJECT_MANAGER' && !pLoading
+  })
+
+  const isLoading = (role !== 'EMPLOYEE' ? pLoading : false) || aLoading || uLoading || tLoading || (role === 'PROJECT_MANAGER' && tmLoading)
 
   if (isLoading) {
     return <div className="page-loader"><div className="spinner" /> Loading dashboard…</div>
@@ -82,8 +95,8 @@ export default function DashboardPage() {
   }
 
   if (role === 'PROJECT_MANAGER') {
-    const team = users.filter(u => u.role !== 'ADMIN') // Basic team filter
-    return <DashboardManager user={user} projects={projects} tasks={tasks} activities={activities} team={team} />
+    const pmUsers = users.filter(u => u.role !== 'ADMIN' && teamMembers.some(m => String(m.userId) === String(u.userId)))
+    return <DashboardManager user={user} projects={projects} tasks={tasks} activities={activities} team={pmUsers} />
   }
 
   // EMPLOYEE is default fallback

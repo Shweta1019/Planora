@@ -31,6 +31,7 @@ public class Project {
     @Column(columnDefinition = "TEXT")
     private String description;
 
+    @Column(nullable = false)
     private LocalDate startDate;
     private LocalDate endDate;
 
@@ -40,6 +41,10 @@ public class Project {
     @Builder.Default
     @Column(precision = 15, scale = 2)
     private BigDecimal spentAmount = BigDecimal.ZERO;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean budgetOverrun = false;
 
     @Enumerated(EnumType.STRING)
     @Builder.Default
@@ -62,4 +67,12 @@ public class Project {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
+
+    @PrePersist
+    @PreUpdate
+    public void syncCompletionPercentage() {
+        if (this.status == ProjectStatus.COMPLETED) {
+            this.completionPercentage = 100;
+        }
+    }
 }
