@@ -393,36 +393,7 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Other Preferences */}
-                  <div style={{ fontWeight: 700, fontSize: '1rem', marginBottom: 14 }}>Other Preferences</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Date Format</label>
-                      <select name="dateFormat" className="form-select" defaultValue="DD-MM-YYYY">
-                        <option>DD-MM-YYYY</option>
-                        <option>MM-DD-YYYY</option>
-                        <option>YYYY-MM-DD</option>
-                      </select>
-                    </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Time Format</label>
-                      <select name="timeFormat" className="form-select" defaultValue="12 Hour (AM/PM)">
-                        <option>12 Hour (AM/PM)</option>
-                        <option>24 Hour</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div style={{ marginBottom: 20 }}>
-                    <div className="form-group" style={{ marginBottom: 0, maxWidth: '50%' }}>
-                      <label className="form-label">Time Zone</label>
-                      <select name="timezone" className="form-select" defaultValue="(GMT+05:30) Asia/Kolkata">
-                        <option>(GMT+05:30) Asia/Kolkata</option>
-                        <option>(GMT+00:00) UTC</option>
-                        <option>(GMT-05:00) America/New_York</option>
-                        <option>(GMT+01:00) Europe/London</option>
-                      </select>
-                    </div>
-                  </div>
+
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                     <button type="submit" className="btn btn-primary" disabled={profileMut.isPending}>

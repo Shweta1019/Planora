@@ -138,14 +138,14 @@ export default function DashboardManager({ tasks = [], projects = [], activities
         <div className="card" style={{ padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>My Active Projects</div>
-            <span style={{ color: COLORS.purple, fontSize: '0.8rem', cursor: 'pointer', fontWeight: 500 }} onClick={() => navigate('/projects')}>View All</span>
+            <span style={{ color: COLORS.purple, fontSize: '0.8rem', fontWeight: 500 }}>View All</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {projects.length === 0 ? <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>No active projects.</div> : null}
             {projects.slice(0, 4).map((p, i) => {
               const pct = (p.status === 'COMPLETED' || p.status === 'Completed') ? 100 : (p.completionPercentage || 0)
               return (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => navigate(`/projects/${p.projectId}`)}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>{p.projectName.length > 20 ? p.projectName.slice(0,20)+'...' : p.projectName}</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: 140 }}>
                     <div style={{ height: 6, flex: 1, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>

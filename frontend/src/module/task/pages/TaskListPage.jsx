@@ -202,9 +202,9 @@ export default function TaskListPage() {
           </td>
           {/* Project */}
           <td>
-            <a href={`/projects/${t.projectId}`} style={{ color: 'var(--purple)', fontWeight: 500, fontSize: '0.82rem' }}>
+            <span style={{ color: 'var(--purple)', fontWeight: 500, fontSize: '0.82rem' }}>
               {t.projectName}
-            </a>
+            </span>
           </td>
           {/* Assigned By (employee) or Assignee (PM) */}
           <td>

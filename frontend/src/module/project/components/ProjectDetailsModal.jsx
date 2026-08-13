@@ -2,6 +2,7 @@ import { X, Folder, Users, UserPlus, Trash2 } from 'lucide-react'
 import { formatDate } from '../../../utils/formatDate'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { projectApi } from '../../../api/projectApi'
+import { expenseApi } from '../../../api/expenseApi'
 import { useState } from 'react'
 
 export default function ProjectDetailsModal({ project, users = [], currentUser, onClose }) {
@@ -16,6 +17,12 @@ export default function ProjectDetailsModal({ project, users = [], currentUser, 
     queryFn: () => projectApi.getMembers(project.projectId).then(r => r.data?.data || r.data || []),
     enabled: !!project?.projectId,
     staleTime: 60_000,
+  })
+
+  const { data: expenses = [] } = useQuery({
+    queryKey: ['expenses', project?.projectId],
+    queryFn: () => expenseApi.getByProject(project.projectId).then(r => r.data?.data || r.data || []),
+    enabled: !!project?.projectId,
   })
 
   const addMut = useMutation({
@@ -45,6 +52,11 @@ export default function ProjectDetailsModal({ project, users = [], currentUser, 
   if (!project) return null
 
   const isManagerOrAdmin = currentUser && (currentUser.role === 'ADMIN' || currentUser.userId === project.managerId)
+
+  const realSpentAmount = expenses.reduce((s, e) => s + (e.amount || 0), 0) || project.spentAmount || 0
+  const budget = project.budget || project.totalBudget || 0
+  const realOverrun = budget > 0 && realSpentAmount > budget
+  const exceededBy = realSpentAmount - budget
 
   return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -105,18 +117,18 @@ export default function ProjectDetailsModal({ project, users = [], currentUser, 
 
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Budget</span>
-              <span style={{ fontWeight: 600 }}>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(project.budget || project.totalBudget || 0)}</span>
+              <span style={{ fontWeight: 600 }}>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(budget)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-secondary)' }}>Spent</span>
-              <span style={{ fontWeight: 600, color: project.budgetOverrun ? '#dc2626' : 'inherit' }}>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(project.spentAmount || 0)}</span>
+              <span style={{ fontWeight: 600, color: realOverrun ? '#dc2626' : 'inherit' }}>{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(realSpentAmount)}</span>
             </div>
 
-            {project.budgetOverrun && (
+            {realOverrun && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gridColumn: '1 / -1', background: '#fee2e2', padding: '12px', borderRadius: '8px', border: '1px solid #fca5a5' }}>
                 <span style={{ color: '#991b1b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>⚠️ Budget Overrun</span>
                 <span style={{ fontSize: '0.85rem', color: '#dc2626', fontWeight: 700 }}>
-                  Exceeded by {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format((project.spentAmount || 0) - (project.budget || project.totalBudget || 0))}
+                  Exceeded by {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(exceededBy)}
                 </span>
               </div>
             )}

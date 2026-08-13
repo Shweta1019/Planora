@@ -12,7 +12,6 @@ const LandingPage = lazy(() => import('../module/landing/pages/LandingPage'))
 const ForgotPasswordPage = lazy(() => import('../module/auth/pages/ForgotPasswordPage'))
 const DashboardPage = lazy(() => import('../module/dashboard/pages/DashboardPage'))
 const ProjectListPage = lazy(() => import('../module/project/pages/ProjectListPage'))
-const ProjectDetailsPage = lazy(() => import('../module/project/pages/ProjectDetailsPage'))
 const TaskListPage = lazy(() => import('../module/task/pages/TaskListPage'))
 const ResourcePage = lazy(() => import('../module/resource/pages/ResourceAllocationPage'))
 const UsersPage = lazy(() => import('../module/user/pages/UsersPage'))
@@ -61,7 +60,6 @@ export default function AppRoutes() {
             {/* All roles */}
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/projects" element={<ProjectListPage />} />
-            <Route path="/projects/:id" element={<ProjectDetailsPage />} />
             <Route path="/tasks" element={<TaskListPage />} />
             <Route path="/files" element={<FilesPage />} />
             <Route path="/notifications"   element={<NotificationsPage />} />
